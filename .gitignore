@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+.venv/
+__pycache__/
+
+# Environment files (contain secrets)
+.env
+backend/.env
+frontend/.env
+ml-service/.env
+
+# Build output
+dist/
+build/
+
+# Artifacts
+artifacts/
+ml_artifacts/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log

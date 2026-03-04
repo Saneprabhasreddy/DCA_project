@@ -1,0 +1,125 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { Brain, Eye, EyeOff, Loader2 } from 'lucide-react';
+import toast from 'react-hot-toast';
+
+export default function LoginPage() {
+    const { login } = useAuth();
+    const navigate = useNavigate();
+    const [username, setUsername] = useState('');
+    const [password, setPassword] = useState('');
+    const [showPw, setShowPw] = useState(false);
+    const [loading, setLoading] = useState(false);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            const user = await login(username, password);
+            toast.success(`Welcome, ${user.username}!`);
+            if (user.role === 'dca_user') {
+                navigate('/my-cases');
+            } else {
+                navigate('/dashboard');
+            }
+        } catch (err) {
+            toast.error(err.response?.data?.error || 'Login failed');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-surface-950 relative overflow-hidden">
+            {/* Background effects */}
+            <div className="absolute inset-0">
+                <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl" />
+                <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl" />
+            </div>
+
+            <div className="relative z-10 w-full max-w-md animate-fade-in-up">
+                {/* Logo */}
+                <div className="text-center mb-8">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                        <Brain className="w-8 h-8 text-white" />
+                    </div>
+                    <h1 className="text-3xl font-bold gradient-text">SmartDCA</h1>
+                    <p className="text-surface-200/50 mt-1">AI-Powered Recovery Platform</p>
+                </div>
+
+                {/* Login Card */}
+                <div className="glass-card p-8">
+                    <h2 className="text-xl font-semibold text-white mb-6">Sign In</h2>
+
+                    <form onSubmit={handleSubmit} className="space-y-5">
+                        <div>
+                            <label className="block text-sm text-surface-200/70 mb-2">Username</label>
+                            <input
+                                id="login-username"
+                                type="text"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                className="input-field"
+                                placeholder="Enter username"
+                                required
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm text-surface-200/70 mb-2">Password</label>
+                            <div className="relative">
+                                <input
+                                    id="login-password"
+                                    type={showPw ? 'text' : 'password'}
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className="input-field input-field-icon-right"
+                                    placeholder="Enter password"
+                                    required
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPw(!showPw)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-200/50 hover:text-white"
+                                >
+                                    {showPw ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                </button>
+                            </div>
+                        </div>
+
+                        <button
+                            id="login-submit"
+                            type="submit"
+                            disabled={loading}
+                            className="btn-primary w-full flex items-center justify-center gap-2 py-3"
+                        >
+                            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
+                            {loading ? 'Signing in...' : 'Sign In'}
+                        </button>
+                    </form>
+
+                    {/* Demo credentials */}
+                    <div className="mt-6 pt-6 border-t border-surface-700/50">
+                        <p className="text-xs text-surface-200/40 mb-3">Demo Credentials</p>
+                        <div className="grid grid-cols-3 gap-2">
+                            {[
+                                { label: 'Admin', u: 'admin', p: 'admin123' },
+                                { label: 'Manager', u: 'manager', p: 'manager123' },
+                                { label: 'DCA User', u: 'dca_user', p: 'dca123' },
+                            ].map((cred) => (
+                                <button
+                                    key={cred.u}
+                                    onClick={() => { setUsername(cred.u); setPassword(cred.p); }}
+                                    className="text-xs px-3 py-2 rounded-lg bg-surface-800/50 hover:bg-surface-700 text-surface-200/70 hover:text-white transition-colors border border-surface-700/50"
+                                >
+                                    {cred.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
