@@ -12,7 +12,10 @@ def main():
     ap.add_argument("--input_json", required=True, help="JSON string with case features")
     args = ap.parse_args()
 
+    # Load models
     clf = load(f"{args.artifacts_dir}/model_recovery_prob.joblib")
+    amt_reg = load(f"{args.artifacts_dir}/model_recovery_amount.joblib")
+    days_reg = load(f"{args.artifacts_dir}/model_recovery_days.joblib")
 
     case = json.loads(args.input_json)
 
@@ -48,11 +51,16 @@ def main():
     X = pd.DataFrame([case])[features]
 
     prob = clf.predict_proba(X)[:, 1][0]
-    pred = int(prob >= 0.5)
+    exp_amt = max(0.0, amt_reg.predict(X)[0])
+    exp_days = max(0.0, days_reg.predict(X)[0])
 
-    print("\n=== New Case Prediction ===")
-    print("Probability(recovered_within_60d) =", round(float(prob), 4))
-    print("Predicted class (threshold 0.5)  =", pred)
+    result = {
+        "prob_60d": round(float(prob), 4),
+        "exp_amt": round(float(exp_amt), 2),
+        "exp_days": round(float(exp_days), 1),
+    }
+
+    print(json.dumps(result))
 
 if __name__ == "__main__":
     main()

@@ -7,7 +7,7 @@ exports.listCases = async (req, res) => {
     try {
         const query = {};
 
-        // RBAC: dca_user only sees assigned cases
+        // RBAC:  only sees assigned cases
         if (req.user.role === 'dca_user') {
             query.assigned_dca_id = req.user.dca_id;
         }
@@ -114,6 +114,60 @@ exports.getCase = async (req, res) => {
     }
 };
 
+// PATCH /api/cases/:case_id/contact
+exports.updateCaseContact = async (req, res) => {
+    try {
+        const c = await Case.findOne({ case_id: req.params.case_id });
+        if (!c) return res.status(404).json({ error: 'Case not found' });
+
+        const editableFields = [
+            'contact_person_name',
+            'company_name',
+            'phone',
+            'alternate_phone',
+            'email',
+            'address',
+            'preferred_contact_channel',
+            'timezone',
+        ];
+
+        const before = {};
+        const after = {};
+
+        for (const field of editableFields) {
+            if (Object.prototype.hasOwnProperty.call(req.body, field)) {
+                before[field] = c[field] || '';
+                const nextValue = typeof req.body[field] === 'string' ? req.body[field].trim() : '';
+                c[field] = nextValue;
+                after[field] = nextValue;
+            }
+        }
+
+        if (Object.prototype.hasOwnProperty.call(after, 'email') && after.email) {
+            const emailRegex = /^\S+@\S+\.\S+$/;
+            if (!emailRegex.test(after.email)) {
+                return res.status(400).json({ error: 'Invalid email format' });
+            }
+        }
+
+        await c.save();
+
+        await AuditLog.create({
+            actor_user: req.user.username,
+            action: 'UPDATE_CASE_CONTACT',
+            entity_type: 'case',
+            entity_id: c.case_id,
+            before,
+            after,
+        });
+
+        res.json(c);
+    } catch (err) {
+        console.error('Update contact error:', err);
+        res.status(500).json({ error: err.message });
+    }
+};
+
 // GET /api/cases/:case_id/interactions
 exports.getCaseInteractions = async (req, res) => {
     try {
@@ -139,6 +193,9 @@ exports.addInteraction = async (req, res) => {
 
         if (req.user.role === 'dca_user' && c.assigned_dca_id !== req.user.dca_id) {
             return res.status(403).json({ error: 'Not authorized' });
+        }
+        if (c.current_stage_snapshot === 'Closed') {
+            return res.status(400).json({ error: 'Cannot add interactions to a closed case' });
         }
 
         const { event_type, channel, notes, outcome, close_reason } = req.body;
@@ -197,6 +254,9 @@ exports.assignCase = async (req, res) => {
     try {
         const c = await Case.findOne({ case_id: req.params.case_id });
         if (!c) return res.status(404).json({ error: 'Case not found' });
+        if (c.current_stage_snapshot === 'Closed') {
+            return res.status(400).json({ error: 'Cannot assign a closed case' });
+        }
 
         const { assigned_dca_id } = req.body;
         if (!assigned_dca_id) return res.status(400).json({ error: 'assigned_dca_id required' });

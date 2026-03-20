@@ -3,6 +3,37 @@ const DcaOrg = require('../models/DcaOrg');
 const MlMetric = require('../models/MlMetric');
 const AuditLog = require('../models/AuditLog');
 
+function normalizeMetrics(metrics) {
+    if (!metrics) return null;
+
+    const hasFlatConfusion =
+        typeof metrics.tn === 'number' ||
+        typeof metrics.fp === 'number' ||
+        typeof metrics.fn === 'number' ||
+        typeof metrics.tp === 'number';
+
+    return {
+        ...metrics,
+        accuracy: metrics.accuracy ?? metrics.clf_accuracy ?? null,
+        precision: metrics.precision ?? metrics.clf_precision ?? null,
+        recall: metrics.recall ?? metrics.clf_recall ?? null,
+        roc_auc: metrics.roc_auc ?? metrics.clf_roc_auc ?? null,
+        pr_auc: metrics.pr_auc ?? metrics.clf_pr_auc ?? null,
+        amount_mae: metrics.amount_mae ?? metrics.reg_amount_mae ?? null,
+        days_mae: metrics.days_mae ?? metrics.reg_days_mae ?? null,
+        confusion_matrix: metrics.confusion_matrix ?? (
+            hasFlatConfusion
+                ? {
+                    tn: metrics.tn ?? 0,
+                    fp: metrics.fp ?? 0,
+                    fn: metrics.fn ?? 0,
+                    tp: metrics.tp ?? 0,
+                }
+                : null
+        ),
+    };
+}
+
 // GET /api/dashboard/stats
 exports.getStats = async (req, res) => {
     try {
@@ -69,7 +100,7 @@ exports.getStats = async (req, res) => {
             stageBreakdown,
             regionBreakdown,
             dcaPerformance,
-            latestMetrics: latestMetrics ? latestMetrics.metrics : null,
+            latestMetrics: normalizeMetrics(latestMetrics ? latestMetrics.metrics : null),
             recentAudit,
         });
     } catch (err) {

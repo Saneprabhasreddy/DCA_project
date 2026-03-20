@@ -10,6 +10,7 @@ router.use(auth);
 router.get('/', caseController.listCases);
 router.post('/', requireRole('admin', 'manager'), caseController.createCase);
 router.get('/:case_id', caseController.getCase);
+router.patch('/:case_id/contact', requireRole('admin', 'manager'), caseController.updateCaseContact);
 router.get('/:case_id/interactions', caseController.getCaseInteractions);
 
 // DCA users can add interactions to their assigned cases

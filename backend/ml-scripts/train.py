@@ -355,50 +355,7 @@ def main() -> None:
     with open(os.path.join(args.artifacts_dir, "metadata.json"), "w") as f:
         json.dump(meta, f, indent=2)
 
-    # ===== Print “professor-friendly” outputs =====
-    print("\n================ SMARTDCA — CLASSIFICATION RESULTS ================")
-    print(f"Threshold = {metrics.threshold}")
-
-    print("\nConfusion Matrix (rows=Actual, cols=Predicted):")
-    print("            Pred=0    Pred=1")
-    print(f"Actual=0     {metrics.tn:5d}     {metrics.fp:5d}")
-    print(f"Actual=1     {metrics.fn:5d}     {metrics.tp:5d}")
-
-    # Print formulas with substituted values
-    tp, tn, fp, fn = metrics.tp, metrics.tn, metrics.fp, metrics.fn
-    denom = tp + tn + fp + fn
-
-    print("\nMetrics (with formula):")
-    print(
-        f"Accuracy  = (TP+TN)/(TP+TN+FP+FN) = ({tp}+{tn})/({tp}+{tn}+{fp}+{fn})"
-        f" = {metrics.clf_accuracy:.4f}"
-    )
-    print(
-        f"Precision = TP/(TP+FP)            = {tp}/({tp}+{fp})"
-        f" = {metrics.clf_precision:.4f}"
-    )
-    print(
-        f"Recall    = TP/(TP+FN)            = {tp}/({tp}+{fn})"
-        f" = {metrics.clf_recall:.4f}"
-    )
-
-    print("\nExtra (probability quality metrics):")
-    print(f"ROC-AUC = {metrics.clf_roc_auc:.4f}")
-    print(f"PR-AUC  = {metrics.clf_pr_auc:.4f}")
-
-    print("\nActual vs Predicted (first 20 rows of TEST set):")
-    print(preview.head(20).to_string(index=False))
-
-    # Save full actual vs predicted for the test set
-    out_csv = os.path.join(args.artifacts_dir, "test_actual_vs_predicted.csv")
-    preview.to_csv(out_csv, index=False)
-    print(f"\nSaved file for professor: {out_csv}")
-
-    print("\n================ REGRESSION RESULTS ================")
-    print(f"Recovered Amount MAE (USD) = {metrics.reg_amount_mae:.2f}")
-    print(f"Recovery Days MAE          = {metrics.reg_days_mae:.2f}")
-
-    print("\n✅ Training complete. Models + metrics saved in:", args.artifacts_dir)
+    print(json.dumps(asdict(metrics)))
 
 
 if __name__ == "__main__":

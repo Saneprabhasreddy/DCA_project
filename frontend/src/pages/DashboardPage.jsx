@@ -53,6 +53,34 @@ export default function DashboardPage() {
 
     if (!stats) return null;
 
+    const formatPct = (value) => (
+        Number.isFinite(value) ? `${(value * 100).toFixed(1)}%` : '—'
+    );
+
+    const rawMetrics = stats.latestMetrics || null;
+    const metrics = rawMetrics
+        ? {
+            ...rawMetrics,
+            accuracy: rawMetrics.accuracy ?? rawMetrics.clf_accuracy,
+            precision: rawMetrics.precision ?? rawMetrics.clf_precision,
+            recall: rawMetrics.recall ?? rawMetrics.clf_recall,
+            roc_auc: rawMetrics.roc_auc ?? rawMetrics.clf_roc_auc,
+            pr_auc: rawMetrics.pr_auc ?? rawMetrics.clf_pr_auc,
+            amount_mae: rawMetrics.amount_mae ?? rawMetrics.reg_amount_mae,
+            days_mae: rawMetrics.days_mae ?? rawMetrics.reg_days_mae,
+            confusion_matrix: rawMetrics.confusion_matrix ?? (
+                (rawMetrics.tn != null || rawMetrics.fp != null || rawMetrics.fn != null || rawMetrics.tp != null)
+                    ? {
+                        tn: rawMetrics.tn ?? 0,
+                        fp: rawMetrics.fp ?? 0,
+                        fn: rawMetrics.fn ?? 0,
+                        tp: rawMetrics.tp ?? 0,
+                    }
+                    : null
+            ),
+        }
+        : null;
+
     const kpis = [
         { label: 'Total Cases', value: stats.totalCases?.toLocaleString(), icon: FileText, color: 'from-blue-500 to-blue-600' },
         { label: 'Active Cases', value: stats.allocatedCases?.toLocaleString(), icon: Activity, color: 'from-purple-500 to-purple-600' },
@@ -69,8 +97,6 @@ export default function DashboardPage() {
         recovered: d.recovered,
         rate: d.total > 0 ? ((d.recovered / d.total) * 100).toFixed(1) : 0,
     })) || [];
-
-    const metrics = stats.latestMetrics;
 
     return (
         <div className="space-y-6 animate-fade-in-up">
@@ -116,11 +142,11 @@ export default function DashboardPage() {
                         <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-3">
                                 {[
-                                    { label: 'Accuracy', value: (metrics.accuracy * 100).toFixed(1) + '%', color: 'text-blue-400' },
-                                    { label: 'Precision', value: (metrics.precision * 100).toFixed(1) + '%', color: 'text-purple-400' },
-                                    { label: 'Recall', value: (metrics.recall * 100).toFixed(1) + '%', color: 'text-emerald-400' },
-                                    { label: 'ROC AUC', value: (metrics.roc_auc * 100).toFixed(1) + '%', color: 'text-amber-400' },
-                                    { label: 'PR AUC', value: (metrics.pr_auc * 100).toFixed(1) + '%', color: 'text-pink-400' },
+                                    { label: 'Accuracy', value: formatPct(metrics.accuracy), color: 'text-blue-400' },
+                                    { label: 'Precision', value: formatPct(metrics.precision), color: 'text-purple-400' },
+                                    { label: 'Recall', value: formatPct(metrics.recall), color: 'text-emerald-400' },
+                                    { label: 'ROC AUC', value: formatPct(metrics.roc_auc), color: 'text-amber-400' },
+                                    { label: 'PR AUC', value: formatPct(metrics.pr_auc), color: 'text-pink-400' },
                                     { label: 'Training Rows', value: metrics.n_rows?.toLocaleString(), color: 'text-cyan-400' },
                                 ].map((m, i) => (
                                     <div key={i} className="bg-surface-800/50 rounded-xl p-3">

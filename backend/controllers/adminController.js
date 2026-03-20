@@ -241,6 +241,43 @@ exports.updateDca = async (req, res) => {
     }
 };
 
+// DELETE /api/admin/dcas/:id
+exports.deleteDca = async (req, res) => {
+    try {
+        let dca = await DcaOrg.findOne({ dca_id: req.params.id });
+        if (!dca && req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+            dca = await DcaOrg.findById(req.params.id);
+        }
+        if (!dca) return res.status(404).json({ error: 'DCA not found' });
+
+        const [linkedUsers, linkedCases] = await Promise.all([
+            User.countDocuments({ role: 'dca_user', dca_id: dca.dca_id }),
+            Case.countDocuments({ assigned_dca_id: dca.dca_id }),
+        ]);
+
+        if (linkedUsers > 0 || linkedCases > 0) {
+            return res.status(400).json({
+                error: `Cannot delete ${dca.dca_id}. Linked users: ${linkedUsers}, linked cases: ${linkedCases}. Reassign or remove them first.`,
+            });
+        }
+
+        const before = dca.toObject();
+        await DcaOrg.deleteOne({ _id: dca._id });
+
+        await AuditLog.create({
+            actor_user: req.user.username,
+            action: 'DELETE_DCA',
+            entity_type: 'dca_org',
+            entity_id: dca.dca_id,
+            before,
+        });
+
+        res.json({ message: 'DCA deleted' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
 // POST /api/admin/managers
 exports.createManagerUser = async (req, res) => {
     try {
@@ -440,7 +477,7 @@ exports.updateDcaUser = async (req, res) => {
 
         await AuditLog.create({
             actor_user: req.user.username,
-            action: 'UPDATE_DCA_USER',
+            action: 'UPDATE_',
             entity_type: 'user',
             entity_id: user._id.toString(),
             before,
@@ -495,6 +532,56 @@ exports.updateManagerUser = async (req, res) => {
             role: user.role,
             is_active: user.is_active,
         });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// DELETE /api/admin/dca-users/:id
+exports.deleteDcaUser = async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user || user.role !== 'dca_user') {
+            return res.status(404).json({ error: 'DCA user not found' });
+        }
+
+        const before = user.toObject();
+        await User.deleteOne({ _id: user._id });
+
+        await AuditLog.create({
+            actor_user: req.user.username,
+            action: 'DELETE_DCA_USER',
+            entity_type: 'user',
+            entity_id: user._id.toString(),
+            before,
+        });
+
+        res.json({ message: 'DCA user deleted' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// DELETE /api/admin/managers/:id
+exports.deleteManagerUser = async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user || user.role !== 'manager') {
+            return res.status(404).json({ error: 'Manager user not found' });
+        }
+
+        const before = user.toObject();
+        await User.deleteOne({ _id: user._id });
+
+        await AuditLog.create({
+            actor_user: req.user.username,
+            action: 'DELETE_MANAGER_USER',
+            entity_type: 'user',
+            entity_id: user._id.toString(),
+            before,
+        });
+
+        res.json({ message: 'Manager deleted' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

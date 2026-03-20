@@ -70,7 +70,7 @@ By default, the `SEED_USERS` variable in `.env` creates these users:
 |----------|------------|--------------|
 | Admin    | `admin`    | `admin123`   |
 | Manager  | `manager`  | `manager123` |
-| DCA User | `dca_user` | `dca123`     |
+| DCA User | `` | `dca123`     |
 
 > **Security Note:** Change `JWT_SECRET` and passwords in your `.env` file before deploying to production.
 

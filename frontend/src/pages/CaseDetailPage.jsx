@@ -5,7 +5,7 @@ import api from '../api';
 import toast from 'react-hot-toast';
 import {
     ArrowLeft, Brain, Users, CheckCircle, Loader2, Clock, DollarSign,
-    Target, Zap, MessageSquare, Plus, Send, Phone, Mail, Copy, User
+    Target, Zap, MessageSquare, Plus, Send, Phone, Mail, Copy, User, Edit3, X
 } from 'lucide-react';
 
 export default function CaseDetailPage() {
@@ -23,6 +23,18 @@ export default function CaseDetailPage() {
     const [showAddInteraction, setShowAddInteraction] = useState(false);
     const [newInteraction, setNewInteraction] = useState({ event_type: 'Note Added', channel: 'Portal', notes: '', stage: '', outcome: '', close_reason: '' });
     const [reassignMode, setReassignMode] = useState(false);
+    const [editingContact, setEditingContact] = useState(false);
+    const [savingContact, setSavingContact] = useState(false);
+    const [contactForm, setContactForm] = useState({
+        contact_person_name: '',
+        company_name: '',
+        phone: '',
+        alternate_phone: '',
+        email: '',
+        address: '',
+        preferred_contact_channel: 'Email',
+        timezone: 'UTC',
+    });
 
     const fetchCase = async () => {
         try {
@@ -46,7 +58,7 @@ export default function CaseDetailPage() {
         setPredicting(true);
         try {
             const res = await api.post(`/cases/${case_id}/predict`);
-            toast.success(`AI scored: ${(res.data.prob_60d * 100).toFixed(1)}% recovery probability`);
+            toast.success(`Predicted score: ${(res.data.prob_60d * 100).toFixed(1)}% recovery probability`);
             fetchCase();
         } catch (err) {
             toast.error(err.response?.data?.error || 'Prediction failed');
@@ -69,6 +81,10 @@ export default function CaseDetailPage() {
     };
 
     const handleAssign = async (dca_id) => {
+        if (c.current_stage_snapshot === 'Closed') {
+            toast.error('Cannot assign a closed case.');
+            return;
+        }
         if (!c.phone && !c.email) {
             toast.error('Cannot assign case: Customer contact info is required.');
             return;
@@ -88,6 +104,11 @@ export default function CaseDetailPage() {
 
     const handleAddInteraction = async (e) => {
         e.preventDefault();
+        if (caseData?.current_stage_snapshot === 'Closed') {
+            toast.error('Cannot add interactions to a closed case.');
+            setShowAddInteraction(false);
+            return;
+        }
         try {
             await api.post(`/cases/${case_id}/interactions`, newInteraction);
             toast.success('Interaction added');
@@ -96,6 +117,35 @@ export default function CaseDetailPage() {
             fetchCase();
         } catch (err) {
             toast.error(err.response?.data?.error || 'Failed to add interaction');
+        }
+    };
+
+    const openContactEditor = () => {
+        setContactForm({
+            contact_person_name: caseData?.contact_person_name || '',
+            company_name: caseData?.company_name || '',
+            phone: caseData?.phone || '',
+            alternate_phone: caseData?.alternate_phone || '',
+            email: caseData?.email || '',
+            address: caseData?.address || '',
+            preferred_contact_channel: caseData?.preferred_contact_channel || 'Email',
+            timezone: caseData?.timezone || 'UTC',
+        });
+        setEditingContact(true);
+    };
+
+    const handleSaveContact = async (e) => {
+        e.preventDefault();
+        setSavingContact(true);
+        try {
+            await api.patch(`/cases/${case_id}/contact`, contactForm);
+            toast.success('Customer contact updated');
+            setEditingContact(false);
+            fetchCase();
+        } catch (err) {
+            toast.error(err.response?.data?.error || 'Failed to update contact');
+        } finally {
+            setSavingContact(false);
         }
     };
 
@@ -110,6 +160,7 @@ export default function CaseDetailPage() {
     if (!caseData) return null;
 
     const c = caseData;
+    const isClosed = c.current_stage_snapshot === 'Closed';
 
     const stageBadge = (s) => {
         const colors = {
@@ -149,7 +200,7 @@ export default function CaseDetailPage() {
                     <div className="flex items-center gap-2">
                         {c.current_stage_snapshot === 'Closed' ? (
                             <span className="text-sm font-medium text-surface-200/40 border border-surface-700/50 bg-surface-800/50 px-3 py-1.5 rounded-lg flex items-center gap-2" title="Disabled because case is Closed">
-                                Case Closed — AI actions disabled
+                                Case Closed
                             </span>
                         ) : (
                             <>
@@ -216,15 +267,25 @@ export default function CaseDetailPage() {
                                     <User className="w-5 h-5 text-blue-400" />
                                     <h2 className="text-lg font-semibold text-white">Customer Contact</h2>
                                 </div>
-                                <button
-                                    onClick={() => {
-                                        navigator.clipboard.writeText(`Name: ${c.contact_person_name || 'N/A'}\nPhone: ${c.phone || 'N/A'}\nEmail: ${c.email || 'N/A'}`);
-                                        toast.success("Contact details copied!");
-                                    }}
-                                    className="btn-secondary py-1 px-3 text-sm flex items-center gap-1"
-                                >
-                                    <Copy className="w-4 h-4" /> Copy Details
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(`Name: ${c.contact_person_name || 'N/A'}\nPhone: ${c.phone || 'N/A'}\nEmail: ${c.email || 'N/A'}`);
+                                            toast.success("Contact details copied!");
+                                        }}
+                                        className="btn-secondary py-1 px-3 text-sm flex items-center gap-1"
+                                    >
+                                        <Copy className="w-4 h-4" /> Copy Details
+                                    </button>
+                                    {canManage && c.current_stage_snapshot !== 'Closed' && (
+                                        <button
+                                            onClick={openContactEditor}
+                                            className="btn-secondary py-1 px-3 text-sm flex items-center gap-1"
+                                        >
+                                            <Edit3 className="w-4 h-4" /> Edit Contact
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-1">
@@ -259,7 +320,110 @@ export default function CaseDetailPage() {
                         <div className="glass-card p-6 border-l-4 border-l-surface-600 bg-surface-800/20 text-center">
                             <User className="w-8 h-8 text-surface-200/30 mx-auto mb-2" />
                             <p className="text-surface-200/60 font-medium">No Customer Contact Info Available</p>
-                            <p className="text-xs text-surface-200/40 mt-1">Assignment may be blocked for DCA users</p>
+                            <p className="text-xs text-surface-200/40 mt-1">
+                                {c.current_stage_snapshot === 'Closed'
+                                    ? 'Case is closed; contact details are optional'
+                                    : 'Assignment is blocked until Phone or Email is added'}
+                            </p>
+                            {canManage && c.current_stage_snapshot !== 'Closed' && (
+                                <button onClick={openContactEditor} className="btn-primary mt-4 inline-flex items-center gap-1 text-sm">
+                                    <Edit3 className="w-4 h-4" /> Add Contact Info
+                                </button>
+                            )}
+                        </div>
+                    )}
+
+                    {editingContact && canManage && c.current_stage_snapshot !== 'Closed' && (
+                        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                            <div className="w-full max-w-3xl bg-surface-900 border border-surface-700 rounded-2xl shadow-2xl">
+                                <div className="flex items-center justify-between px-6 py-4 border-b border-surface-700/60">
+                                    <h3 className="text-base font-semibold text-white">Edit Customer Contact</h3>
+                                    <button
+                                        onClick={() => setEditingContact(false)}
+                                        className="btn-secondary py-1 px-2"
+                                        title="Close"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+                                <form onSubmit={handleSaveContact} className="p-6 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <input
+                                        type="text"
+                                        value={contactForm.contact_person_name}
+                                        onChange={(e) => setContactForm({ ...contactForm, contact_person_name: e.target.value })}
+                                        className="input-field"
+                                        placeholder="Contact person"
+                                    />
+                                    <input
+                                        type="text"
+                                        value={contactForm.company_name}
+                                        onChange={(e) => setContactForm({ ...contactForm, company_name: e.target.value })}
+                                        className="input-field"
+                                        placeholder="Company name"
+                                    />
+                                    <input
+                                        type="tel"
+                                        value={contactForm.phone}
+                                        onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
+                                        className="input-field"
+                                        placeholder="Primary phone"
+                                    />
+                                    <input
+                                        type="tel"
+                                        value={contactForm.alternate_phone}
+                                        onChange={(e) => setContactForm({ ...contactForm, alternate_phone: e.target.value })}
+                                        className="input-field"
+                                        placeholder="Alternate phone"
+                                    />
+                                    <input
+                                        type="email"
+                                        value={contactForm.email}
+                                        onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
+                                        className="input-field"
+                                        placeholder="Email"
+                                    />
+                                    <input
+                                        type="text"
+                                        value={contactForm.timezone}
+                                        onChange={(e) => setContactForm({ ...contactForm, timezone: e.target.value })}
+                                        className="input-field"
+                                        placeholder="Timezone"
+                                    />
+                                    <select
+                                        value={contactForm.preferred_contact_channel}
+                                        onChange={(e) => setContactForm({ ...contactForm, preferred_contact_channel: e.target.value })}
+                                        className="input-field"
+                                    >
+                                        <option>Email</option>
+                                        <option>Phone</option>
+                                        <option>SMS</option>
+                                        <option>Portal</option>
+                                    </select>
+                                    <div className="hidden md:block" />
+                                    <textarea
+                                        value={contactForm.address}
+                                        onChange={(e) => setContactForm({ ...contactForm, address: e.target.value })}
+                                        className="input-field md:col-span-2 min-h-[90px]"
+                                        placeholder="Mailing address"
+                                    />
+                                    <div className="md:col-span-2 flex items-center justify-end gap-2 mt-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => setEditingContact(false)}
+                                            className="btn-secondary"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={savingContact}
+                                            className="btn-primary"
+                                        >
+                                            {savingContact ? 'Saving...' : 'Save Contact'}
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
                         </div>
                     )}
 
@@ -359,16 +523,22 @@ export default function CaseDetailPage() {
                                 <h2 className="text-lg font-semibold text-white">Interaction Timeline</h2>
                                 <span className="text-xs text-surface-200/40">({interactions.length})</span>
                             </div>
-                            <button
-                                onClick={() => setShowAddInteraction(!showAddInteraction)}
-                                className="btn-secondary flex items-center gap-1 text-sm"
-                            >
-                                <Plus className="w-4 h-4" /> Add
-                            </button>
+                            {!isClosed ? (
+                                <button
+                                    onClick={() => setShowAddInteraction(!showAddInteraction)}
+                                    className="btn-secondary flex items-center gap-1 text-sm"
+                                >
+                                    <Plus className="w-4 h-4" /> Add
+                                </button>
+                            ) : (
+                                <span className="text-xs bg-surface-800 text-surface-200/40 px-3 py-1.5 rounded-lg border border-surface-700/50">
+                                    Closed case: read-only timeline
+                                </span>
+                            )}
                         </div>
 
                         {/* Add interaction form */}
-                        {showAddInteraction && (
+                        {showAddInteraction && !isClosed && (
                             <form onSubmit={handleAddInteraction} className="mb-6 bg-surface-800/50 rounded-xl p-4 space-y-3 border border-surface-700/50">
                                 <div className="grid grid-cols-2 gap-3">
                                     <select
@@ -447,9 +617,11 @@ export default function CaseDetailPage() {
                             {sortedInteractions.length === 0 ? (
                                 <div className="text-center py-8">
                                     <p className="text-surface-200/50 mb-3">No interactions yet</p>
-                                    <button onClick={() => setShowAddInteraction(true)} className="btn-secondary text-xs px-3 py-1">
-                                        Add First Interaction
-                                    </button>
+                                    {!isClosed && (
+                                        <button onClick={() => setShowAddInteraction(true)} className="btn-secondary text-xs px-3 py-1">
+                                            Add First Interaction
+                                        </button>
+                                    )}
                                 </div>
                             ) : (
                                 sortedInteractions.map((int, i) => (

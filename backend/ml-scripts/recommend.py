@@ -6,6 +6,7 @@ from typing import Dict, List, Optional
 import numpy as np
 import pandas as pd
 from joblib import load
+from pymongo import MongoClient
 
 FEATURES = [
     "region",
@@ -31,25 +32,21 @@ CAT_COLS = ["region", "industry", "credit_score_band", "last_contact_channel", "
 DEFAULT_DCAS = [f"DCA-{i:02d}" for i in range(1, 11)]  # DCA-01..DCA-10
 
 
-def get_available_dcas(cases_csv_path: str, capacity_left: Optional[Dict[str, int]] = None) -> List[str]:
+def get_available_dcas(mongo_uri: str, capacity_left: Optional[Dict[str, int]] = None) -> List[str]:
     """
-    Returns ALL DCAs found in cases_csv (assigned_dca_id column).
+    Returns ALL DCAs found in MongoDB cases collection (assigned_dca_id column).
     If capacity_left is provided, keep only DCAs with capacity > 0.
-    Also includes any DCAs present in capacity_left even if not in CSV.
+    Also includes any DCAs present in capacity_left even if not in DB.
     """
     dcas: List[str] = []
 
-    # 1) From cases.csv
+    # 1) From MongoDB
     try:
-        df = pd.read_csv(cases_csv_path, usecols=["assigned_dca_id"])
-        dcas = (
-            df["assigned_dca_id"]
-            .dropna()
-            .astype(str)
-            .str.strip()
-            .unique()
-            .tolist()
-        )
+        client = MongoClient(mongo_uri)
+        db = client.get_default_database()
+        cursor = db["cases"].find({"assigned_dca_id": {"$regex": "^DCA"}}, {"_id": 0, "assigned_dca_id": 1})
+        dcas = [str(doc["assigned_dca_id"]) for doc in cursor if doc.get("assigned_dca_id")]
+        client.close()
     except Exception:
         dcas = []
 
@@ -81,38 +78,44 @@ def invoice_bucket(amount: float) -> str:
     return "XL"
 
 
-def build_dca_segment_table(cases_csv_path: str) -> pd.DataFrame:
+def build_dca_segment_table(mongo_uri: str) -> Dict:
     """
     Builds historical performance multiplier per:
       (dca_id, region, industry, invoice_bucket)
     Uses recovered_flag recovery rate as performance signal.
+    Returns a dict seg_table[key] = {"recovered": int, "total": int}
     """
-    cases = pd.read_csv(cases_csv_path)
-
-    # clean
-    cases["region"] = cases["region"].fillna("UNKNOWN")
-    cases["industry"] = cases["industry"].fillna("UNKNOWN")
-    cases["assigned_dca_id"] = cases["assigned_dca_id"].fillna("UNKNOWN")
-
-    cases["invoice_bucket"] = cases["invoice_amount_usd"].apply(invoice_bucket)
-    cases["recovered_flag"] = cases["recovered_flag"].fillna(0).astype(int)
-
-    # Only use rows that actually had a DCA assignment (skip UNKNOWN)
-    # (use startswith("DCA") so it works even if ids are like DCA_11 or DCA11)
-    hist = cases[cases["assigned_dca_id"].astype(str).str.startswith("DCA")].copy()
-
-    grp = (
-        hist.groupby(["assigned_dca_id", "region", "industry", "invoice_bucket"])["recovered_flag"]
-        .agg(["mean", "count"])
-        .reset_index()
-        .rename(columns={"assigned_dca_id": "dca_id", "mean": "recovery_rate", "count": "n"})
+    client = MongoClient(mongo_uri)
+    db = client.get_default_database()
+    cases_cursor = db["cases"].find(
+        {"assigned_dca_id": {"$regex": "^DCA"}},
+        {"_id": 0, "assigned_dca_id": 1, "region": 1, "industry": 1,
+         "invoice_amount_usd": 1, "recovered_flag": 1}
     )
+    hist_list = list(cases_cursor)
+    client.close()
 
-    # Convert recovery_rate into a multiplier around 1.0
-    global_rate = hist["recovered_flag"].mean() if len(hist) else 0.5
-    grp["multiplier"] = (grp["recovery_rate"] / max(global_rate, 1e-6)).clip(0.6, 1.6)
+    # Build segment table
+    seg_table = {}
+    global_recovered = 0
+    global_total = 0
 
-    return grp
+    for h in hist_list:
+        key = (
+            str(h.get("assigned_dca_id", "UNKNOWN")),
+            str(h.get("region", "UNKNOWN")),
+            str(h.get("industry", "UNKNOWN")),
+            invoice_bucket(float(h.get("invoice_amount_usd", 0)))
+        )
+        if key not in seg_table:
+            seg_table[key] = {"recovered": 0, "total": 0}
+        seg_table[key]["total"] += 1
+        rec = int(h.get("recovered_flag", 0))
+        seg_table[key]["recovered"] += rec
+        global_total += 1
+        global_recovered += rec
+
+    return seg_table, global_recovered / max(global_total, 1)
 
 
 def score_case_for_dca(case: dict, dca_id: str, clf, reg_amt, reg_days) -> dict:
@@ -150,7 +153,7 @@ def score_case_for_dca(case: dict, dca_id: str, clf, reg_amt, reg_days) -> dict:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--artifacts_dir", default="artifacts")
-    ap.add_argument("--cases_csv", default="data/fedex_dca_synthetic_dataset/cases.csv")
+    ap.add_argument("--mongo_uri", required=True, help="MongoDB URI")
     ap.add_argument("--input_json", required=True, help="New case features as JSON string")
     ap.add_argument("--top_k", type=int, default=3)
     ap.add_argument("--capacity_json", default=None, help="Optional: {'DCA-01':120, ...} active capacity left")
@@ -174,40 +177,30 @@ def main():
         capacity_left = json.loads(args.capacity_json)
 
     # Build historical DCA segment multipliers
-    seg = build_dca_segment_table(args.cases_csv)
+    seg_table, global_rate = build_dca_segment_table(args.mongo_uri)
 
-    # Evaluate each DCA
-    results = []
+    # Get available DCAs
+    dcas = get_available_dcas(args.mongo_uri, capacity_left)
 
-    inv_amt = float(case.get("invoice_amount_usd", 0.0))
-    seg_key = (
-        case.get("region", "UNKNOWN"),
-        case.get("industry", "UNKNOWN"),
-        invoice_bucket(inv_amt),
-    )
-
-    # normalization helpers for suitability
+    # Score each DCA
+    per_dca = {}
     probs, amts, days_list = [], [], []
-    per_dca_scores = {}
 
-    # ✅ THIS is the important line: get ALL DCAs from CSV (and apply capacity filter if provided)
-    dcas_to_check = get_available_dcas(args.cases_csv, capacity_left=capacity_left)
+    for dca_id in dcas:
+        row = dict(case)
+        row["assigned_dca_id"] = dca_id
+        X = pd.DataFrame([row])[FEATURES]
 
-    for dca in dcas_to_check:
-        # (extra safety: capacity check still here)
-        if capacity_left is not None and capacity_left.get(dca, 0) <= 0:
-            continue
+        prob = float(clf.predict_proba(X)[:, 1][0])
+        exp_amt = float(max(0.0, reg_amt.predict(X)[0]))
+        exp_days = float(max(0.0, reg_days.predict(X)[0]))
 
-        s = score_case_for_dca(case, dca, clf, reg_amt, reg_days)
-        per_dca_scores[dca] = s
-        probs.append(s["prob"])
-        amts.append(s["exp_amt"])
-        days_list.append(s["exp_days"])
+        per_dca[dca_id] = {"prob": prob, "exp_amt": exp_amt, "exp_days": exp_days}
+        probs.append(prob)
+        amts.append(exp_amt)
+        days_list.append(exp_days)
 
-    if not per_dca_scores:
-        raise RuntimeError("No DCAs available (capacity constraints removed all).")
-
-    # Normalize amount/days for suitability score
+    # Normalize
     prob_min, prob_max = min(probs), max(probs)
     amt_min, amt_max = min(amts), max(amts)
     day_min, day_max = min(days_list), max(days_list)
@@ -215,58 +208,48 @@ def main():
     def norm(x, a, b):
         return 0.0 if b - a < 1e-9 else (x - a) / (b - a)
 
-    for dca, s in per_dca_scores.items():
-        # base suitability from ML
+    results = []
+    region = str(case.get("region", "UNKNOWN"))
+    industry = str(case.get("industry", "UNKNOWN"))
+    bucket = invoice_bucket(float(case.get("invoice_amount_usd", 0)))
+
+    for dca_id, s in per_dca.items():
         p_n = norm(s["prob"], prob_min, prob_max)
         a_n = norm(s["exp_amt"], amt_min, amt_max)
         d_n = norm(s["exp_days"], day_min, day_max)
 
-        # Higher is better: probability & amount high, days low
-        base_suitability = 0.6 * p_n + 0.2 * a_n - 0.2 * d_n
+        base = 0.6 * p_n + 0.2 * a_n - 0.2 * d_n
 
-        # segment multiplier lookup
-        region, industry, bucket = seg_key
-        match = seg[
-            (seg["dca_id"] == dca)
-            & (seg["region"] == region)
-            & (seg["industry"] == industry)
-            & (seg["invoice_bucket"] == bucket)
-        ]
+        seg_key = (dca_id, region, industry, bucket)
+        seg_data = seg_table.get(seg_key)
+        mult = 1.0
+        reason_mult = "No historical data for this segment, using 1.0x multiplier"
+        if seg_data and seg_data["total"] >= 5:  # min 5 cases for reliability
+            seg_rate = seg_data["recovered"] / seg_data["total"]
+            mult = seg_rate / global_rate if global_rate > 0 else 1.0
+            mult = max(0.5, min(2.0, mult))  # clip
+            reason_mult = f"Historical segment rate {seg_rate:.3f} vs global {global_rate:.3f} = {mult:.2f}x"
 
-        if len(match) == 0:
-            multiplier = 1.0
-            reason_mult = "No history for this segment → multiplier=1.0"
-        else:
-            multiplier = float(match["multiplier"].iloc[0])
-            rr = float(match["recovery_rate"].iloc[0])
-            n = int(match["n"].iloc[0])
-            reason_mult = f"Segment history: recovery_rate={rr:.2f} over n={n} → multiplier={multiplier:.2f}"
+        final_score = base * mult
 
-        final_score = base_suitability * multiplier
-
-        results.append(
-            {
-                "dca_id": dca,
-                "final_score": float(final_score),
-                "ml_prob_60d": s["prob"],
-                "ml_exp_amount": s["exp_amt"],
-                "ml_exp_days": s["exp_days"],
-                "multiplier_reason": reason_mult,
-            }
-        )
+        results.append({
+            "dca_id": dca_id,
+            "final_score": float(final_score),
+            "prob_60d": s["prob"],
+            "exp_amt": s["exp_amt"],
+            "exp_days": s["exp_days"],
+            "reason": reason_mult,
+        })
 
     results.sort(key=lambda x: x["final_score"], reverse=True)
     top = results[: args.top_k]
 
-    print("\n=== Top DCA Recommendations ===")
-    for i, r in enumerate(top, 1):
-        print(f"\n#{i} {r['dca_id']}  final_score={r['final_score']:.4f}")
-        print(
-            f"   ML: prob_60d={r['ml_prob_60d']:.4f}, exp_amt=${r['ml_exp_amount']:.2f}, exp_days={r['ml_exp_days']:.1f}"
-        )
-        print(f"   {r['multiplier_reason']}")
+    output = {
+        "recommendations": top,
+        "best_dca": top[0]["dca_id"] if top else None
+    }
 
-    print("\n✅ Recommended assignment:", top[0]["dca_id"])
+    print(json.dumps(output))
 
 
 if __name__ == "__main__":
