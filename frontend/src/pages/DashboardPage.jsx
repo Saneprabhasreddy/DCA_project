@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../api';
 import toast from 'react-hot-toast';
+import { useTheme } from '../contexts/ThemeContext';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell, Legend
@@ -12,7 +13,29 @@ import {
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#22c55e', '#06b6d4'];
 
+function StageTooltip({ active, payload, isDark }) {
+    if (!active || !payload?.length) return null;
+
+    const item = payload[0];
+    return (
+        <div className={`rounded-lg px-3 py-2 shadow-2xl ${isDark
+            ? 'border border-blue-400/50 bg-slate-900/95 backdrop-blur-sm'
+            : 'border border-slate-300 bg-white'
+            }`}>
+            <p className={`text-[11px] ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>Case Stage</p>
+            <p className={`text-sm font-semibold flex items-center gap-2 ${isDark ? 'text-surface-100' : 'text-slate-800'}`}>
+                <span
+                    className="inline-block h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: item.color || '#60a5fa' }}
+                />
+                {item.name}: {item.value}
+            </p>
+        </div>
+    );
+}
+
 export default function DashboardPage() {
+    const { isDark } = useTheme();
     const [stats, setStats] = useState(null);
     const [training, setTraining] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -103,7 +126,7 @@ export default function DashboardPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+                    <h1 className="text-2xl font-bold text-surface-100">Dashboard</h1>
                     <p className="text-surface-200/50 text-sm mt-1">AI-powered recovery analytics</p>
                 </div>
                 <button
@@ -124,7 +147,7 @@ export default function DashboardPage() {
                         <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${kpi.color} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
                             <kpi.icon className="w-5 h-5 text-white" />
                         </div>
-                        <p className="text-2xl font-bold text-white">{kpi.value}</p>
+                        <p className="text-2xl font-bold text-surface-100">{kpi.value}</p>
                         <p className="text-xs text-surface-200/50 mt-1">{kpi.label}</p>
                     </div>
                 ))}
@@ -136,7 +159,7 @@ export default function DashboardPage() {
                 <div className="glass-card p-6">
                     <div className="flex items-center gap-2 mb-4">
                         <Brain className="w-5 h-5 text-purple-400" />
-                        <h2 className="text-lg font-semibold text-white">Latest Training Metrics</h2>
+                        <h2 className="text-lg font-semibold text-surface-100">Latest Training Metrics</h2>
                     </div>
                     {metrics ? (
                         <div className="space-y-4">
@@ -206,7 +229,7 @@ export default function DashboardPage() {
 
                 {/* Stage Distribution */}
                 <div className="glass-card p-6">
-                    <h2 className="text-lg font-semibold text-white mb-4">Case Stage Distribution</h2>
+                    <h2 className="text-lg font-semibold text-surface-100 mb-4">Case Stage Distribution</h2>
                     {stageData.length > 0 ? (
                         <ResponsiveContainer width="100%" height={320}>
                             <PieChart>
@@ -225,7 +248,9 @@ export default function DashboardPage() {
                                     ))}
                                 </Pie>
                                 <Tooltip
-                                    contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '12px', color: '#f1f5f9' }}
+                                    content={<StageTooltip isDark={isDark} />}
+                                    cursor={false}
+                                    wrapperStyle={{ outline: 'none' }}
                                 />
                                 <Legend />
                             </PieChart>
@@ -238,15 +263,20 @@ export default function DashboardPage() {
 
             {/* DCA Performance */}
             <div className="glass-card p-6">
-                <h2 className="text-lg font-semibold text-white mb-4">DCA Performance</h2>
+                <h2 className="text-lg font-semibold text-surface-100 mb-4">DCA Performance</h2>
                 {dcaData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={300}>
                         <BarChart data={dcaData}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                            <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} />
-                            <YAxis stroke="#94a3b8" fontSize={12} />
+                            <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#334155' : '#cbd5e1'} />
+                            <XAxis dataKey="name" stroke={isDark ? '#94a3b8' : '#64748b'} fontSize={12} />
+                            <YAxis stroke={isDark ? '#94a3b8' : '#64748b'} fontSize={12} />
                             <Tooltip
-                                contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '12px', color: '#f1f5f9' }}
+                                contentStyle={{
+                                    background: isDark ? '#1e293b' : '#ffffff',
+                                    border: isDark ? '1px solid #334155' : '1px solid #cbd5e1',
+                                    borderRadius: '12px',
+                                    color: isDark ? '#f1f5f9' : '#0f172a',
+                                }}
                             />
                             <Bar dataKey="cases" fill="#3b82f6" name="Total Cases" radius={[4, 4, 0, 0]} />
                             <Bar dataKey="recovered" fill="#22c55e" name="Recovered" radius={[4, 4, 0, 0]} />
@@ -261,20 +291,20 @@ export default function DashboardPage() {
             {/* Recent Audit Trail */}
             {stats.recentAudit && stats.recentAudit.length > 0 && (
                 <div className="glass-card p-6">
-                    <h2 className="text-lg font-semibold text-white mb-4">Recent Activity</h2>
+                    <h2 className="text-lg font-semibold text-surface-100 mb-4">Recent Activity</h2>
                     <div className="space-y-2">
                         {stats.recentAudit.map((a, i) => (
-                            <div key={i} className="flex items-center gap-4 px-4 py-3 bg-surface-800/30 rounded-xl">
+                            <div key={i} className={`flex items-center gap-4 px-4 py-3 rounded-xl border ${isDark ? 'bg-surface-800/30 border-surface-700/30' : 'bg-slate-50 border-slate-200'}`}>
                                 <div className="w-2 h-2 rounded-full bg-blue-400" />
                                 <div className="flex-1">
-                                    <p className="text-sm text-white">
+                                    <p className={`text-sm ${isDark ? 'text-surface-100' : 'text-slate-700'}`}>
                                         <span className="text-blue-400 font-medium">{a.actor_user}</span>
                                         {' — '}
-                                        <span className="text-surface-200/70">{a.action}</span>
-                                        {a.entity_id && <span className="text-surface-200/50"> • {a.entity_id}</span>}
+                                        <span className={isDark ? 'text-surface-200/70' : 'text-slate-600'}>{a.action}</span>
+                                        {a.entity_id && <span className={isDark ? 'text-surface-200/50' : 'text-slate-500'}> • {a.entity_id}</span>}
                                     </p>
                                 </div>
-                                <p className="text-xs text-surface-200/40">
+                                <p className={`text-xs ${isDark ? 'text-surface-200/40' : 'text-slate-500'}`}>
                                     {new Date(a.timestamp).toLocaleString()}
                                 </p>
                             </div>

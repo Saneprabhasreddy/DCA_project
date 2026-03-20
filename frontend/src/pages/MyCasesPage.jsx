@@ -50,7 +50,7 @@ export default function MyCasesPage() {
     return (
         <div className="space-y-6 animate-fade-in-up">
             <div>
-                <h1 className="text-2xl font-bold text-white">My Assigned Cases</h1>
+                <h1 className="text-2xl font-bold text-surface-100">My Assigned Cases</h1>
                 <p className="text-surface-200/50 text-sm">DCA: {user?.dca_id}</p>
             </div>
 
@@ -115,7 +115,7 @@ export default function MyCasesPage() {
                             <div className="space-y-2 pt-2 border-t border-surface-700/50">
                                 <div className="flex justify-between text-sm">
                                     <span className="text-surface-200/50">Amount</span>
-                                    <span className="text-white font-medium">${c.invoice_amount_usd?.toLocaleString()}</span>
+                                    <span className="text-surface-100 font-medium">${c.invoice_amount_usd?.toLocaleString()}</span>
                                 </div>
                                 <div className="flex justify-between text-sm">
                                     <span className="text-surface-200/50">Region</span>

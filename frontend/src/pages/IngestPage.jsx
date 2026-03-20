@@ -22,14 +22,14 @@ export default function IngestPage() {
 
     return (
         <div className="max-w-2xl mx-auto space-y-6 animate-fade-in-up">
-            <h1 className="text-2xl font-bold text-white">Data Ingestion</h1>
+            <h1 className="text-2xl font-bold text-surface-100">Data Ingestion</h1>
 
             <div className="glass-card p-8 text-center">
                 <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
                     <Database className="w-10 h-10 text-white" />
                 </div>
 
-                <h2 className="text-xl font-semibold text-white mb-2">Seed MongoDB from Dataset</h2>
+                <h2 className="text-xl font-semibold text-surface-100 mb-2">Seed MongoDB from Dataset</h2>
                 <p className="text-surface-200/50 mb-6 max-w-md mx-auto">
                     This will load <strong>cases.csv</strong> and <strong>interactions.csv</strong> from the FedEx DCA synthetic dataset into MongoDB.
                     It also seeds DCA-01 through DCA-10 organizations and default user accounts.
@@ -64,7 +64,7 @@ export default function IngestPage() {
                             ].map((item, i) => (
                                 <div key={i} className="bg-surface-800/50 rounded-lg p-3">
                                     <p className="text-xs text-surface-200/50">{item.label}</p>
-                                    <p className="text-xl font-bold text-white">{item.value}</p>
+                                    <p className="text-xl font-bold text-surface-100">{item.value}</p>
                                 </div>
                             ))}
                         </div>

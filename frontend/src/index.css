@@ -2,17 +2,116 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Light theme (default) */
+  --color-surface-50: 2 6 23;
+  --color-surface-100: 15 23 42;
+  --color-surface-200: 30 41 59;
+  --color-surface-300: 51 65 85;
+  --color-surface-400: 71 85 105;
+  --color-surface-500: 148 163 184;
+  --color-surface-600: 203 213 225;
+  --color-surface-700: 226 232 240;
+  --color-surface-800: 241 245 249;
+  --color-surface-900: 248 250 252;
+  --color-surface-950: 255 255 255;
+  --color-glass-bg: 255 255 255;
+  --color-glass-border: 226 232 240;
+  --glass-opacity: 0.96;
+  --color-scroll-track: 241 245 249;
+  --color-scroll-thumb: 148 163 184;
+  --color-shell-bg: 248 250 252;
+  --color-sidebar-bg: 255 255 255;
+  --color-topbar-bg: 248 250 252;
+  --color-chrome-border: 226 232 240;
+  --color-input-bg: 248 250 252;
+  --color-input-text: 15 23 42;
+  --color-input-placeholder: 100 116 139;
+  --alpha-text-200-20: 0.42;
+  --alpha-text-200-30: 0.52;
+  --alpha-text-200-40: 0.62;
+  --alpha-text-200-50: 0.72;
+  --alpha-text-200-60: 0.8;
+  --alpha-text-200-70: 0.88;
+  --alpha-text-200-80: 0.94;
+  --alpha-text-200-85: 0.96;
+  --alpha-text-200-90: 1;
+  --alpha-bg-700-50: 0.62;
+  --alpha-bg-800-20: 0.58;
+  --alpha-bg-800-30: 0.68;
+  --alpha-bg-800-40: 0.76;
+  --alpha-bg-800-50: 0.86;
+  --alpha-bg-900-50: 0.84;
+  --alpha-bg-900-80: 0.94;
+  --alpha-border-700-30: 0.58;
+  --alpha-border-700-50: 0.72;
+  --alpha-border-700-60: 0.8;
+}
+
+:root[data-theme='dark'] {
+  /* Dark theme */
+  --color-surface-50: 248 250 252;
+  --color-surface-100: 241 245 249;
+  --color-surface-200: 226 232 240;
+  --color-surface-300: 203 213 225;
+  --color-surface-400: 148 163 184;
+  --color-surface-500: 100 116 139;
+  --color-surface-600: 71 85 105;
+  --color-surface-700: 51 65 85;
+  --color-surface-800: 30 41 59;
+  --color-surface-900: 15 23 42;
+  --color-surface-950: 2 6 23;
+  --color-glass-bg: 30 41 59;
+  --color-glass-border: 51 65 85;
+  --glass-opacity: 0.62;
+  --color-scroll-track: 15 23 42;
+  --color-scroll-thumb: 51 65 85;
+  --color-shell-bg: 2 6 23;
+  --color-sidebar-bg: 15 23 42;
+  --color-topbar-bg: 15 23 42;
+  --color-chrome-border: 51 65 85;
+  --color-input-bg: 15 23 42;
+  --color-input-text: 241 245 249;
+  --color-input-placeholder: 148 163 184;
+  --alpha-text-200-20: 0.2;
+  --alpha-text-200-30: 0.3;
+  --alpha-text-200-40: 0.4;
+  --alpha-text-200-50: 0.5;
+  --alpha-text-200-60: 0.6;
+  --alpha-text-200-70: 0.7;
+  --alpha-text-200-80: 0.8;
+  --alpha-text-200-85: 0.85;
+  --alpha-text-200-90: 0.9;
+  --alpha-bg-700-50: 0.5;
+  --alpha-bg-800-20: 0.2;
+  --alpha-bg-800-30: 0.3;
+  --alpha-bg-800-40: 0.4;
+  --alpha-bg-800-50: 0.5;
+  --alpha-bg-900-50: 0.5;
+  --alpha-bg-900-80: 0.8;
+  --alpha-border-700-30: 0.3;
+  --alpha-border-700-50: 0.5;
+  --alpha-border-700-60: 0.6;
+}
+
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
 body {
   font-family: 'Inter', system-ui, sans-serif;
-  background: #020617;
-  color: #f1f5f9;
+  background: rgb(var(--color-surface-950));
+  color: rgb(var(--color-surface-100));
   min-height: 100vh;
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 ::-webkit-scrollbar {
@@ -21,25 +120,49 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: rgb(var(--color-scroll-track));
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: rgb(var(--color-scroll-thumb));
   border-radius: 3px;
 }
 
 /* Glass card */
 .glass-card {
-  background: rgba(30, 41, 59, 0.6);
+  background: rgb(var(--color-glass-bg) / var(--glass-opacity));
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(51, 65, 85, 0.5);
+  border: 1px solid rgb(var(--color-glass-border) / 0.72);
   border-radius: 16px;
+  box-shadow: 0 8px 32px rgb(2 6 23 / 0.08);
+}
+
+:root[data-theme='dark'] .glass-card {
+  box-shadow: 0 10px 36px rgb(2 6 23 / 0.28);
+}
+
+.app-shell {
+  background: rgb(var(--color-shell-bg));
+  color: rgb(var(--color-surface-100));
+}
+
+.app-sidebar {
+  background: rgb(var(--color-sidebar-bg) / 0.88);
+  border-right: 1px solid rgb(var(--color-chrome-border) / 0.85);
+}
+
+.app-topbar {
+  background: rgb(var(--color-topbar-bg) / 0.72);
+  border-bottom: 1px solid rgb(var(--color-chrome-border) / 0.85);
+}
+
+.app-main {
+  background: rgb(var(--color-shell-bg));
 }
 
 .glass-card-hover:hover {
-  border-color: rgba(59, 130, 246, 0.4);
-  box-shadow: 0 0 20px rgba(59, 130, 246, 0.1);
+  border-color: rgb(59 130 246 / 0.45);
+  box-shadow: 0 0 0 1px rgb(59 130 246 / 0.15), 0 18px 28px rgb(59 130 246 / 0.16);
 }
 
 /* Gradient text */
@@ -57,14 +180,14 @@ body {
 
 .btn-secondary {
   @apply px-4 py-2 font-medium rounded-xl transition-all duration-200;
-  background: #1e293b;
-  color: #e2e8f0;
-  border: 1px solid #334155;
+  background: rgb(var(--color-surface-900));
+  color: rgb(var(--color-surface-200));
+  border: 1px solid rgb(var(--color-surface-700));
 }
 
 .btn-secondary:hover {
-  background: #334155;
-  border-color: #475569;
+  background: rgb(var(--color-surface-800));
+  border-color: rgb(var(--color-surface-600));
 }
 
 .btn-danger {
@@ -77,19 +200,71 @@ body {
 
 /* Input styles */
 .input-field {
-  @apply w-full px-4 py-3 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all duration-200;
-  background: #0f172a;
-  border: 1px solid #334155;
+  @apply w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all duration-200;
+  background: rgb(var(--color-input-bg));
+  border: 1px solid rgb(var(--color-surface-700));
+  color: rgb(var(--color-input-text));
+  caret-color: rgb(var(--color-input-text));
 }
 
 .input-field::placeholder {
-  color: rgba(226, 232, 240, 0.4);
+  color: rgb(var(--color-input-placeholder) / 0.95);
 }
 
 .input-field option {
-  background: #0f172a;
-  color: #f1f5f9;
+  background: rgb(var(--color-input-bg));
+  color: rgb(var(--color-input-text));
 }
+
+.input-field:-webkit-autofill,
+.input-field:-webkit-autofill:hover,
+.input-field:-webkit-autofill:focus,
+.input-field:-webkit-autofill:active {
+  -webkit-text-fill-color: rgb(var(--color-input-text)) !important;
+  -webkit-box-shadow: 0 0 0 1000px rgb(var(--color-input-bg)) inset !important;
+  box-shadow: 0 0 0 1000px rgb(var(--color-input-bg)) inset !important;
+  caret-color: rgb(var(--color-input-text)) !important;
+}
+
+/* Runtime overrides for surface utility classes to ensure consistent theming */
+.text-surface-100 { color: rgb(var(--color-surface-100)) !important; }
+.text-surface-200 { color: rgb(var(--color-surface-200)) !important; }
+.text-surface-300 { color: rgb(var(--color-surface-300)) !important; }
+.text-surface-200\/20 { color: rgb(var(--color-surface-200) / var(--alpha-text-200-20)) !important; }
+.text-surface-200\/30 { color: rgb(var(--color-surface-200) / var(--alpha-text-200-30)) !important; }
+.text-surface-200\/40 { color: rgb(var(--color-surface-200) / var(--alpha-text-200-40)) !important; }
+.text-surface-200\/50 { color: rgb(var(--color-surface-200) / var(--alpha-text-200-50)) !important; }
+.text-surface-200\/60 { color: rgb(var(--color-surface-200) / var(--alpha-text-200-60)) !important; }
+.text-surface-200\/70 { color: rgb(var(--color-surface-200) / var(--alpha-text-200-70)) !important; }
+.text-surface-200\/80 { color: rgb(var(--color-surface-200) / var(--alpha-text-200-80)) !important; }
+.text-surface-200\/85 { color: rgb(var(--color-surface-200) / var(--alpha-text-200-85)) !important; }
+.text-surface-200\/90 { color: rgb(var(--color-surface-200) / var(--alpha-text-200-90)) !important; }
+.text-surface-400 { color: rgb(var(--color-surface-400)) !important; }
+
+.bg-surface-700 { background-color: rgb(var(--color-surface-700)) !important; }
+.bg-surface-700\/50 { background-color: rgb(var(--color-surface-700) / var(--alpha-bg-700-50)) !important; }
+.bg-surface-800 { background-color: rgb(var(--color-surface-800)) !important; }
+.bg-surface-800\/20 { background-color: rgb(var(--color-surface-800) / var(--alpha-bg-800-20)) !important; }
+.bg-surface-800\/30 { background-color: rgb(var(--color-surface-800) / var(--alpha-bg-800-30)) !important; }
+.bg-surface-800\/40 { background-color: rgb(var(--color-surface-800) / var(--alpha-bg-800-40)) !important; }
+.bg-surface-800\/50 { background-color: rgb(var(--color-surface-800) / var(--alpha-bg-800-50)) !important; }
+.bg-surface-900 { background-color: rgb(var(--color-surface-900)) !important; }
+.bg-surface-900\/50 { background-color: rgb(var(--color-surface-900) / var(--alpha-bg-900-50)) !important; }
+.bg-surface-900\/80 { background-color: rgb(var(--color-surface-900) / var(--alpha-bg-900-80)) !important; }
+.bg-surface-950 { background-color: rgb(var(--color-surface-950)) !important; }
+
+.border-surface-600 { border-color: rgb(var(--color-surface-600)) !important; }
+.border-surface-700 { border-color: rgb(var(--color-surface-700)) !important; }
+.border-surface-700\/30 { border-color: rgb(var(--color-surface-700) / var(--alpha-border-700-30)) !important; }
+.border-surface-700\/50 { border-color: rgb(var(--color-surface-700) / var(--alpha-border-700-50)) !important; }
+.border-surface-700\/60 { border-color: rgb(var(--color-surface-700) / var(--alpha-border-700-60)) !important; }
+
+.hover\:bg-surface-700:hover { background-color: rgb(var(--color-surface-700)) !important; }
+.hover\:bg-surface-800:hover { background-color: rgb(var(--color-surface-800)) !important; }
+.hover\:bg-surface-800\/30:hover { background-color: rgb(var(--color-surface-800) / var(--alpha-bg-800-30)) !important; }
+.hover\:bg-surface-800\/40:hover { background-color: rgb(var(--color-surface-800) / var(--alpha-bg-800-40)) !important; }
+.hover\:bg-surface-800\/50:hover { background-color: rgb(var(--color-surface-800) / var(--alpha-bg-800-50)) !important; }
+.hover\:text-surface-100:hover { color: rgb(var(--color-surface-100)) !important; }
 
 /* Input modifiers for fields with embedded icons */
 .input-field-icon-left {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
 import toast from 'react-hot-toast';
@@ -18,6 +19,10 @@ export default function CaseDetailPage() {
     const [recommendations, setRecommendations] = useState(null);
     const [loading, setLoading] = useState(true);
     const [predicting, setPredicting] = useState(false);
+    const [showPredictionModal, setShowPredictionModal] = useState(false);
+    const [predictedScore, setPredictedScore] = useState(null);
+    const [showRecommendModal, setShowRecommendModal] = useState(false);
+    const [topRecommendedDca, setTopRecommendedDca] = useState('');
     const [recommending, setRecommending] = useState(false);
     const [assigning, setAssigning] = useState(false);
     const [showAddInteraction, setShowAddInteraction] = useState(false);
@@ -58,7 +63,13 @@ export default function CaseDetailPage() {
         setPredicting(true);
         try {
             const res = await api.post(`/cases/${case_id}/predict`);
-            toast.success(`Predicted score: ${(res.data.prob_60d * 100).toFixed(1)}% recovery probability`);
+            const prob60d = Number(res.data?.prob_60d);
+            if (Number.isFinite(prob60d)) {
+                setPredictedScore((prob60d * 100).toFixed(1));
+                setShowPredictionModal(true);
+            } else {
+                toast.success('Prediction completed');
+            }
             fetchCase();
         } catch (err) {
             toast.error(err.response?.data?.error || 'Prediction failed');
@@ -72,7 +83,12 @@ export default function CaseDetailPage() {
         try {
             const res = await api.post(`/cases/${case_id}/recommend`);
             setRecommendations(res.data);
-            toast.success(`Top DCA: ${res.data.best_dca}`);
+            if (res.data?.best_dca) {
+                setTopRecommendedDca(res.data.best_dca);
+                setShowRecommendModal(true);
+            } else {
+                toast.success('Recommendation completed');
+            }
         } catch (err) {
             toast.error(err.response?.data?.error || 'Recommendation failed');
         } finally {
@@ -187,7 +203,7 @@ export default function CaseDetailPage() {
                     <ArrowLeft className="w-5 h-5" />
                 </button>
                 <div className="flex-1">
-                    <h1 className="text-2xl font-bold text-white">Case {c.case_id}</h1>
+                    <h1 className="text-2xl font-bold text-surface-100">Case {c.case_id}</h1>
                     <div className="flex items-center gap-3 mt-1">
                         <span className={`badge border ${stageBadge(c.current_stage_snapshot)}`}>{c.current_stage_snapshot}</span>
                         {c.assigned_dca_id && <span className="badge bg-cyan-500/20 text-cyan-400">{c.assigned_dca_id}</span>}
@@ -235,7 +251,7 @@ export default function CaseDetailPage() {
                 <div className="lg:col-span-2 space-y-6">
                     {/* Main Info Card */}
                     <div className="glass-card p-6">
-                        <h2 className="text-lg font-semibold text-white mb-4">Case Details</h2>
+                        <h2 className="text-lg font-semibold text-surface-100 mb-4">Case Details</h2>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                             {[
                                 { label: 'Invoice Amount', value: `$${c.invoice_amount_usd?.toLocaleString()}`, icon: DollarSign },
@@ -253,7 +269,7 @@ export default function CaseDetailPage() {
                             ].map((item, i) => (
                                 <div key={i} className="bg-surface-800/30 rounded-xl p-3">
                                     <p className="text-xs text-surface-200/50">{item.label}</p>
-                                    <p className="text-sm font-medium text-white mt-1">{item.value || '—'}</p>
+                                    <p className="text-sm font-medium text-surface-100 mt-1">{item.value || '—'}</p>
                                 </div>
                             ))}
                         </div>
@@ -265,7 +281,7 @@ export default function CaseDetailPage() {
                             <div className="flex items-center justify-between mb-4">
                                 <div className="flex items-center gap-2">
                                     <User className="w-5 h-5 text-blue-400" />
-                                    <h2 className="text-lg font-semibold text-white">Customer Contact</h2>
+                                    <h2 className="text-lg font-semibold text-surface-100">Customer Contact</h2>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <button
@@ -290,23 +306,23 @@ export default function CaseDetailPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-1">
                                     <p className="text-xs text-surface-200/50">Contact Person</p>
-                                    <p className="text-sm text-white font-medium">{c.contact_person_name || '—'}</p>
+                                    <p className="text-sm text-surface-100 font-medium">{c.contact_person_name || '—'}</p>
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-xs text-surface-200/50">Company Name</p>
-                                    <p className="text-sm text-white font-medium">{c.company_name || '—'}</p>
+                                    <p className="text-sm text-surface-100 font-medium">{c.company_name || '—'}</p>
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-xs text-surface-200/50">Primary Phone</p>
                                     <div className="flex items-center gap-2">
-                                        <p className="text-sm text-white font-medium">{c.phone || '—'}</p>
+                                        <p className="text-sm text-surface-100 font-medium">{c.phone || '—'}</p>
                                         {c.phone && <a href={`tel:${c.phone.replace(/[^\d+]/g, '')}`} className="text-blue-400 hover:text-blue-300"><Phone className="w-4 h-4" /></a>}
                                     </div>
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-xs text-surface-200/50">Email Address</p>
                                     <div className="flex items-center gap-2">
-                                        <p className="text-sm text-white font-medium">{c.email || '—'}</p>
+                                        <p className="text-sm text-surface-100 font-medium">{c.email || '—'}</p>
                                         {c.email && <a href={`mailto:${c.email}?subject=Regarding SmartDCA Case ${c.case_id}`} className="text-blue-400 hover:text-blue-300"><Mail className="w-4 h-4" /></a>}
                                     </div>
                                 </div>
@@ -337,7 +353,7 @@ export default function CaseDetailPage() {
                         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
                             <div className="w-full max-w-3xl bg-surface-900 border border-surface-700 rounded-2xl shadow-2xl">
                                 <div className="flex items-center justify-between px-6 py-4 border-b border-surface-700/60">
-                                    <h3 className="text-base font-semibold text-white">Edit Customer Contact</h3>
+                                    <h3 className="text-base font-semibold text-surface-100">Edit Customer Contact</h3>
                                     <button
                                         onClick={() => setEditingContact(false)}
                                         className="btn-secondary py-1 px-2"
@@ -432,7 +448,7 @@ export default function CaseDetailPage() {
                         <div className="glass-card p-6">
                             <div className="flex items-center gap-2 mb-4">
                                 <Brain className="w-5 h-5 text-purple-400" />
-                                <h2 className="text-lg font-semibold text-white">AI Predictions</h2>
+                                <h2 className="text-lg font-semibold text-surface-100">AI Predictions</h2>
                                 <span className="text-xs text-surface-200/40 ml-auto">
                                     Scored: {c.ai_scored_at ? new Date(c.ai_scored_at).toLocaleString() : '—'}
                                 </span>
@@ -462,7 +478,7 @@ export default function CaseDetailPage() {
                         <div className="glass-card p-6">
                             <div className="flex items-center gap-2 mb-4">
                                 <Zap className="w-5 h-5 text-amber-400" />
-                                <h2 className="text-lg font-semibold text-white">DCA Recommendations</h2>
+                                <h2 className="text-lg font-semibold text-surface-100">DCA Recommendations</h2>
                                 <span className="badge bg-emerald-500/20 text-emerald-400 ml-2">
                                     Best: {recommendations.best_dca}
                                 </span>
@@ -480,7 +496,7 @@ export default function CaseDetailPage() {
                                                     #{i + 1}
                                                 </div>
                                                 <div>
-                                                    <p className="text-white font-semibold">{rec.dca_id}</p>
+                                                    <p className="text-surface-100 font-semibold">{rec.dca_id}</p>
                                                     <p className="text-xs text-surface-200/50">
                                                         Score: {rec.final_score} · Prob: {(rec.prob_60d * 100).toFixed(1)}% · Amt: ${rec.exp_amt?.toLocaleString()} · Days: {rec.exp_days?.toFixed(1)}
                                                     </p>
@@ -520,7 +536,7 @@ export default function CaseDetailPage() {
                         <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-2">
                                 <MessageSquare className="w-5 h-5 text-blue-400" />
-                                <h2 className="text-lg font-semibold text-white">Interaction Timeline</h2>
+                                <h2 className="text-lg font-semibold text-surface-100">Interaction Timeline</h2>
                                 <span className="text-xs text-surface-200/40">({interactions.length})</span>
                             </div>
                             {!isClosed ? (
@@ -636,7 +652,7 @@ export default function CaseDetailPage() {
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2 flex-wrap">
-                                                <span className="text-sm font-medium text-white">{int.event_type}</span>
+                                                <span className="text-sm font-medium text-surface-100">{int.event_type}</span>
                                                 <span className="badge bg-surface-700 text-surface-200/70">{int.channel}</span>
                                                 {int.outcome && <span className="badge bg-purple-500/20 text-purple-400">Outcome: {int.outcome}</span>}
                                                 <span className="text-xs text-surface-200/40">{int.actor}</span>
@@ -661,7 +677,7 @@ export default function CaseDetailPage() {
                         <div className="space-y-4">
                             <div>
                                 <p className="text-xs text-surface-200/40">Invoice</p>
-                                <p className="text-xl font-bold text-white">${c.invoice_amount_usd?.toLocaleString()}</p>
+                                <p className="text-xl font-bold text-surface-100">${c.invoice_amount_usd?.toLocaleString()}</p>
                             </div>
                             <div>
                                 <p className="text-xs text-surface-200/40">Assigned DCA</p>
@@ -694,7 +710,7 @@ export default function CaseDetailPage() {
                             {c.current_stage_snapshot === 'Closed' && c.close_reason && (
                                 <div className="pt-2 border-t border-surface-700/50">
                                     <p className="text-xs text-surface-200/40">Closure Reason</p>
-                                    <p className="text-sm text-white">{c.close_reason}</p>
+                                    <p className="text-sm text-surface-100">{c.close_reason}</p>
                                     <p className="text-xs text-surface-200/50 mt-1">by {c.closed_by || 'System'}</p>
                                 </div>
                             )}
@@ -723,6 +739,52 @@ export default function CaseDetailPage() {
                     </div>
                 </div>
             </div>
+
+            {showPredictionModal && typeof document !== 'undefined' && createPortal(
+                <div className="fixed inset-0 z-[100] bg-black/30 flex items-center justify-center p-4">
+                    <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_64px_rgba(2,6,23,0.55)]">
+                        <div className="p-6">
+                            <h3 className="text-lg font-semibold text-slate-900">Predicted Score</h3>
+                            <p className="text-slate-600 mt-2">
+                                Predicted score is <span className="text-blue-600 font-semibold">{predictedScore}%</span> recovery probability.
+                            </p>
+                            <div className="mt-6 flex justify-end">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPredictionModal(false)}
+                                    className="rounded-lg bg-blue-600 px-6 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-500"
+                                >
+                                    OK
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {showRecommendModal && typeof document !== 'undefined' && createPortal(
+                <div className="fixed inset-0 z-[100] bg-black/30 flex items-center justify-center p-4">
+                    <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_64px_rgba(2,6,23,0.55)]">
+                        <div className="p-6">
+                            <h3 className="text-lg font-semibold text-slate-900">Top DCA Recommendation</h3>
+                            <p className="text-slate-600 mt-2">
+                                Top DCA is <span className="text-blue-600 font-semibold">{topRecommendedDca}</span>.
+                            </p>
+                            <div className="mt-6 flex justify-end">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowRecommendModal(false)}
+                                    className="rounded-lg bg-blue-600 px-6 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-500"
+                                >
+                                    OK
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
         </div>
     );
 }

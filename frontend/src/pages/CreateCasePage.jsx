@@ -98,7 +98,7 @@ export default function CreateCasePage() {
                     <ArrowLeft className="w-5 h-5" />
                 </button>
                 <div className="flex-1">
-                    <h1 className="text-2xl font-bold text-white">Create New Case</h1>
+                    <h1 className="text-2xl font-bold text-surface-100">Create New Case</h1>
                     <p className="text-sm text-surface-200/50 mt-1">Add a new debt recovery case manually into the system.</p>
                 </div>
             </div>
@@ -109,7 +109,7 @@ export default function CreateCasePage() {
                 <div className="glass-card p-6 border-l-4 border-l-blue-500">
                     <div className="flex items-center gap-2 mb-6 border-b border-surface-700/50 pb-3">
                         <User className="w-5 h-5 text-blue-400" />
-                        <h2 className="text-lg font-semibold text-white">Customer Information <span className="text-red-400 text-sm ml-1">* Mandatory</span></h2>
+                        <h2 className="text-lg font-semibold text-surface-100">Customer Information <span className="text-red-400 text-sm ml-1">* Mandatory</span></h2>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -178,7 +178,7 @@ export default function CreateCasePage() {
                 <div className="glass-card p-6 border-l-4 border-l-emerald-500">
                     <div className="flex items-center gap-2 mb-6 border-b border-surface-700/50 pb-3">
                         <FileText className="w-5 h-5 text-emerald-400" />
-                        <h2 className="text-lg font-semibold text-white">Case Basics</h2>
+                        <h2 className="text-lg font-semibold text-surface-100">Case Basics</h2>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -221,7 +221,7 @@ export default function CreateCasePage() {
                 <div className="glass-card p-6 border-l-4 border-l-amber-500">
                     <div className="flex items-center gap-2 mb-6 border-b border-surface-700/50 pb-3">
                         <Target className="w-5 h-5 text-amber-400" />
-                        <h2 className="text-lg font-semibold text-white">Risk Signals & Flags</h2>
+                        <h2 className="text-lg font-semibold text-surface-100">Risk Signals & Flags</h2>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-5 mb-6">
@@ -253,7 +253,7 @@ export default function CreateCasePage() {
                             <input type="checkbox" name="dispute_flag" checked={formData.dispute_flag === 1} onChange={handleChange} className="w-5 h-5 rounded border-surface-600 bg-surface-900 text-red-500 focus:ring-red-500/50 focus:ring-offset-surface-900 cursor-pointer" />
                             <div className="flex items-center gap-2">
                                 <AlertCircle className={`w-4 h-4 ${formData.dispute_flag ? 'text-red-400' : 'text-surface-200/50'}`} />
-                                <span className="text-sm font-medium text-surface-200/90 group-hover:text-white transition-colors">Has Active Dispute</span>
+                                <span className="text-sm font-medium text-surface-200/90 group-hover:text-surface-100 transition-colors">Has Active Dispute</span>
                             </div>
                         </label>
 
@@ -261,7 +261,7 @@ export default function CreateCasePage() {
                             <input type="checkbox" name="promised_to_pay_flag" checked={formData.promised_to_pay_flag === 1} onChange={handleChange} className="w-5 h-5 rounded border-surface-600 bg-surface-900 text-purple-500 focus:ring-purple-500/50 focus:ring-offset-surface-900 cursor-pointer" />
                             <div className="flex items-center gap-2">
                                 <Target className={`w-4 h-4 ${formData.promised_to_pay_flag ? 'text-purple-400' : 'text-surface-200/50'}`} />
-                                <span className="text-sm font-medium text-surface-200/90 group-hover:text-white transition-colors">Has Active PTP</span>
+                                <span className="text-sm font-medium text-surface-200/90 group-hover:text-surface-100 transition-colors">Has Active PTP</span>
                             </div>
                         </label>
                     </div>

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import api from '../api';
 import toast from 'react-hot-toast';
+import { useTheme } from '../contexts/ThemeContext';
 import {
     Shield,
     Loader2,
@@ -16,6 +18,7 @@ const REGION_OPTIONS = [
 ];
 
 export default function DcaManagementPage() {
+    const { isDark } = useTheme();
     const [dcas, setDcas] = useState([]);
     const [managers, setManagers] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -25,8 +28,9 @@ export default function DcaManagementPage() {
 
     const [editingDca, setEditingDca] = useState(null);
     const [editingManager, setEditingManager] = useState(null);
+    const [deleteTarget, setDeleteTarget] = useState(null);
 
-    const [newDca, setNewDca] = useState({ dca_id: '', dca_name: '', region_coverage: '', contact_email: '' });
+    const [newDca, setNewDca] = useState({ dca_id: '', dca_name: '', region_coverage: '', contact_email: '', dca_password: '' });
     const [newManager, setNewManager] = useState({ username: '', password: '' });
 
     const [deletingDcaId, setDeletingDcaId] = useState(null);
@@ -61,6 +65,10 @@ export default function DcaManagementPage() {
             contact_email: editingDca.contact_email || '',
         };
         const nextPassword = (editingDca.dca_password || '').trim();
+        if (nextPassword && nextPassword.length !== 6) {
+            toast.error('DCA password must be exactly 6 characters');
+            return;
+        }
 
         try {
             await api.patch(`/admin/dcas/${editingDca.dca_id}`, dcaPayload);
@@ -104,11 +112,28 @@ export default function DcaManagementPage() {
 
     const handleCreateDca = async (e) => {
         e.preventDefault();
+        const nextPassword = (newDca.dca_password || '').trim();
+        if (nextPassword.length !== 6) {
+            toast.error('DCA password must be exactly 6 characters');
+            return;
+        }
         try {
-            await api.post('/admin/dcas', newDca);
-            toast.success('DCA organization created');
+            const payload = {
+                dca_id: newDca.dca_id,
+                dca_name: newDca.dca_name,
+                region_coverage: newDca.region_coverage,
+                contact_email: newDca.contact_email,
+                dca_password: nextPassword,
+            };
+            const res = await api.post('/admin/dcas', payload);
+            const createdUsername = res.data?.dca_user_credentials?.username;
+            if (createdUsername) {
+                toast.success(`DCA organization created. Login username: ${createdUsername}`);
+            } else {
+                toast.success('DCA organization created');
+            }
             setShowCreateDca(false);
-            setNewDca({ dca_id: '', dca_name: '', region_coverage: '', contact_email: '' });
+            setNewDca({ dca_id: '', dca_name: '', region_coverage: '', contact_email: '', dca_password: '' });
             fetchData();
         } catch (err) {
             toast.error(err.response?.data?.error || 'Failed to create DCA');
@@ -129,7 +154,6 @@ export default function DcaManagementPage() {
     };
 
     const handleDeleteDca = async (dca) => {
-        if (!window.confirm(`Delete DCA "${dca.dca_id}"? This cannot be undone.`)) return;
         setDeletingDcaId(dca.dca_id);
         try {
             await api.delete(`/admin/dcas/${dca.dca_id}`);
@@ -144,7 +168,6 @@ export default function DcaManagementPage() {
     };
 
     const handleDeleteManager = async (manager) => {
-        if (!window.confirm(`Delete manager "${manager.username}"? This cannot be undone.`)) return;
         setDeletingManagerId(manager._id);
         try {
             await api.delete(`/admin/managers/${manager._id}`);
@@ -160,6 +183,49 @@ export default function DcaManagementPage() {
 
     const primaryActionBtnClass = 'text-xs px-3 py-1.5 rounded-lg font-semibold bg-blue-600 hover:bg-blue-500 text-white transition-colors';
     const dangerActionBtnClass = 'text-xs px-3 py-1.5 rounded-lg font-semibold bg-red-500 hover:bg-red-400 text-white transition-colors';
+    const tableHeadRowClass = isDark ? 'border-b border-surface-700/50' : 'border-b border-slate-300';
+    const tableHeadCellClass = isDark
+        ? 'text-left px-4 py-3 text-xs font-semibold text-surface-200/50 uppercase tracking-wider'
+        : 'text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider';
+    const tableRowClass = isDark
+        ? 'border-b border-surface-700/30 hover:bg-surface-800/30 transition-colors'
+        : 'border-b border-slate-200 hover:bg-blue-50/80 transition-colors';
+    const secondaryCellClass = isDark ? 'px-4 py-3 text-surface-200/80' : 'px-4 py-3 text-slate-600';
+    const activeBadgeClass = isDark
+        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+        : 'bg-emerald-100 text-emerald-700 border border-emerald-200';
+    const inactiveBadgeClass = isDark
+        ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+        : 'bg-red-100 text-red-700 border border-red-200';
+    const managerRoleBadgeClass = isDark
+        ? 'badge bg-blue-500/20 text-blue-300 border border-blue-500/30 uppercase'
+        : 'badge bg-blue-100 text-blue-700 border border-blue-200 uppercase';
+    const openDeleteDcaConfirm = (dca) => {
+        setDeleteTarget({
+            type: 'dca',
+            message: `Delete DCA "${dca.dca_id}"? This cannot be undone.`,
+            payload: dca,
+        });
+    };
+    const openDeleteManagerConfirm = (manager) => {
+        setDeleteTarget({
+            type: 'manager',
+            message: `Delete manager "${manager.username}"? This cannot be undone.`,
+            payload: manager,
+        });
+    };
+    const isDeleteConfirmBusy = deleteTarget?.type === 'dca'
+        ? deletingDcaId === deleteTarget?.payload?.dca_id
+        : deletingManagerId === deleteTarget?.payload?._id;
+    const handleConfirmDelete = async () => {
+        if (!deleteTarget) return;
+        if (deleteTarget.type === 'dca') {
+            await handleDeleteDca(deleteTarget.payload);
+        } else {
+            await handleDeleteManager(deleteTarget.payload);
+        }
+        setDeleteTarget(null);
+    };
     const formatLastSeen = (lastLoginAt) => {
         if (!lastLoginAt) return 'Never';
         return new Date(lastLoginAt).toLocaleString('en-GB', {
@@ -184,7 +250,7 @@ export default function DcaManagementPage() {
     return (
         <div className="space-y-6 animate-fade-in-up">
             <div>
-                <h1 className="text-2xl font-bold text-white">DCA & Manager Management</h1>
+                <h1 className="text-2xl font-bold text-surface-100">DCA & Manager Management</h1>
                 <p className="text-sm text-surface-200/60 mt-1">
                     Cases are assigned directly to DCA organizations. Separate DCA user accounts are hidden.
                 </p>
@@ -194,7 +260,7 @@ export default function DcaManagementPage() {
                 <div className="flex items-center justify-between mb-2 gap-3 flex-wrap">
                     <div className="flex items-center gap-2">
                         <Building2 className="w-5 h-5 text-blue-400" />
-                        <h2 className="text-lg font-semibold text-white">DCA Organizations</h2>
+                        <h2 className="text-lg font-semibold text-surface-100">DCA Organizations</h2>
                         <span className="text-xs text-surface-200/40">({dcas.length})</span>
                     </div>
                     <button onClick={() => setShowCreateDca(true)} className="btn-primary text-sm">
@@ -206,21 +272,21 @@ export default function DcaManagementPage() {
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead>
-                            <tr className="border-b border-surface-700/50">
+                            <tr className={tableHeadRowClass}>
                                 {['DCA ID', 'Name', 'Region', 'Email', 'Active', 'Actions'].map((h) => (
-                                    <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-surface-200/50 uppercase tracking-wider">{h}</th>
+                                    <th key={h} className={tableHeadCellClass}>{h}</th>
                                 ))}
                             </tr>
                         </thead>
                         <tbody>
                             {dcas.map((d) => (
-                                <tr key={d.dca_id} className="border-b border-surface-700/30 hover:bg-surface-800/30">
-                                    <td className="px-4 py-3 text-white font-medium">{d.dca_id}</td>
-                                    <td className="px-4 py-3 text-white">{d.dca_name || '-'}</td>
-                                    <td className="px-4 py-3 text-surface-200/80">{d.region_coverage || '-'}</td>
-                                    <td className="px-4 py-3 text-surface-200/80 break-all">{d.contact_email || '-'}</td>
+                                <tr key={d.dca_id} className={tableRowClass}>
+                                    <td className="px-4 py-3 text-surface-100 font-medium">{d.dca_id}</td>
+                                    <td className="px-4 py-3 text-surface-100">{d.dca_name || '-'}</td>
+                                    <td className={secondaryCellClass}>{d.region_coverage || '-'}</td>
+                                    <td className={`${secondaryCellClass} break-all`}>{d.contact_email || '-'}</td>
                                     <td className="px-4 py-3">
-                                        <span className={`badge ${d.is_active ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'}`}>
+                                        <span className={`badge ${d.is_active ? activeBadgeClass : inactiveBadgeClass}`}>
                                             {d.is_active ? 'Active' : 'Inactive'}
                                         </span>
                                     </td>
@@ -234,7 +300,7 @@ export default function DcaManagementPage() {
                                                 Edit
                                             </button>
                                             <button
-                                                onClick={() => handleDeleteDca(d)}
+                                                onClick={() => openDeleteDcaConfirm(d)}
                                                 disabled={deletingDcaId === d.dca_id}
                                                 className={`${dangerActionBtnClass} disabled:opacity-50`}
                                                 title="Delete DCA"
@@ -255,7 +321,7 @@ export default function DcaManagementPage() {
                 <div className="flex items-center justify-between mb-2 gap-3 flex-wrap">
                     <div className="flex items-center gap-2">
                         <Shield className="w-5 h-5 text-amber-400" />
-                        <h2 className="text-lg font-semibold text-white">User Management</h2>
+                        <h2 className="text-lg font-semibold text-surface-100">User Management</h2>
                         <span className="text-xs text-surface-200/40">({managers.length})</span>
                     </div>
                     <button onClick={() => setShowCreateManager(true)} className="btn-primary text-sm">
@@ -267,27 +333,27 @@ export default function DcaManagementPage() {
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead>
-                            <tr className="border-b border-surface-700/50">
+                            <tr className={tableHeadRowClass}>
                                 {['Username', 'Role', 'Active', 'Last Seen', 'Actions'].map((h) => (
-                                    <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-surface-200/50 uppercase tracking-wider">{h}</th>
+                                    <th key={h} className={tableHeadCellClass}>{h}</th>
                                 ))}
                             </tr>
                         </thead>
                         <tbody>
                             {managers.map((m) => (
-                                <tr key={m._id} className="border-b border-surface-700/30 hover:bg-surface-800/30">
-                                    <td className="px-4 py-3 text-white font-medium">{m.username}</td>
+                                <tr key={m._id} className={tableRowClass}>
+                                    <td className="px-4 py-3 text-surface-100 font-medium">{m.username}</td>
                                     <td className="px-4 py-3">
-                                        <span className="badge bg-blue-500/20 text-blue-300 border border-blue-500/30 uppercase">
+                                        <span className={managerRoleBadgeClass}>
                                             {m.role || 'manager'}
                                         </span>
                                     </td>
                                     <td className="px-4 py-3">
-                                        <span className={`badge ${m.is_active ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'}`}>
+                                        <span className={`badge ${m.is_active ? activeBadgeClass : inactiveBadgeClass}`}>
                                             {m.is_active ? 'Active' : 'Inactive'}
                                         </span>
                                     </td>
-                                    <td className="px-4 py-3 text-surface-200/80">{formatLastSeen(m.last_login_at)}</td>
+                                    <td className={secondaryCellClass}>{formatLastSeen(m.last_login_at)}</td>
                                     <td className="px-4 py-3">
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <button
@@ -298,7 +364,7 @@ export default function DcaManagementPage() {
                                                 Edit
                                             </button>
                                             <button
-                                                onClick={() => handleDeleteManager(m)}
+                                                onClick={() => openDeleteManagerConfirm(m)}
                                                 disabled={deletingManagerId === m._id}
                                                 className={`${dangerActionBtnClass} disabled:opacity-50`}
                                                 title="Delete Manager"
@@ -315,11 +381,44 @@ export default function DcaManagementPage() {
                 </div>
             </section>
 
-            {editingDca && (
-                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="w-full max-w-2xl bg-surface-900 border border-surface-700 rounded-2xl shadow-2xl">
+            {deleteTarget && typeof document !== 'undefined' && createPortal(
+                <div className="fixed inset-0 z-[110] bg-black/55 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="w-full max-w-md bg-surface-900 border border-surface-700 rounded-2xl shadow-2xl">
+                        <div className="px-6 py-4 border-b border-surface-700/60">
+                            <h3 className="text-lg font-semibold text-surface-100">Confirm Delete</h3>
+                        </div>
+                        <div className="px-6 py-5">
+                            <p className="text-sm text-surface-200/80">{deleteTarget.message}</p>
+                            <div className="mt-6 flex items-center justify-end gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setDeleteTarget(null)}
+                                    disabled={isDeleteConfirmBusy}
+                                    className="btn-secondary"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleConfirmDelete}
+                                    disabled={isDeleteConfirmBusy}
+                                    className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium transition-colors disabled:opacity-60 inline-flex items-center gap-2"
+                                >
+                                    {isDeleteConfirmBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {editingDca && typeof document !== 'undefined' && createPortal(
+                <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+                    <div className="w-full max-w-2xl my-8 max-h-[92vh] overflow-y-auto bg-surface-900 border border-surface-700 rounded-2xl shadow-2xl">
                         <div className="flex items-center justify-between px-6 py-4 border-b border-surface-700/60">
-                            <h3 className="text-xl font-semibold text-white">Edit DCA Organization</h3>
+                            <h3 className="text-xl font-semibold text-surface-100">Edit DCA Organization</h3>
                             <button onClick={() => setEditingDca(null)} className="btn-secondary p-2" title="Close">
                                 <X className="w-4 h-4" />
                             </button>
@@ -364,11 +463,12 @@ export default function DcaManagementPage() {
                                 <input
                                     type="password"
                                     value={editingDca.dca_password || ''}
-                                    onChange={(e) => setEditingDca({ ...editingDca, dca_password: e.target.value })}
+                                    onChange={(e) => setEditingDca({ ...editingDca, dca_password: e.target.value.slice(0, 6) })}
                                     placeholder="Enter new password for DCA login"
                                     className="input-field"
+                                    maxLength={6}
                                 />
-                                <p className="text-[11px] text-surface-200/50">If this DCA has multiple user accounts, password will be updated for all of them.</p>
+                                <p className="text-[11px] text-surface-200/50">Exactly 6 characters. If this DCA has multiple user accounts, password will be updated for all of them.</p>
                             </div>
                             <div className="flex justify-end gap-2 pt-2">
                                 <button type="button" onClick={() => setEditingDca(null)} className="btn-secondary">Cancel</button>
@@ -376,18 +476,19 @@ export default function DcaManagementPage() {
                             </div>
                         </form>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
-            {showCreateDca && (
-                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="w-full max-w-2xl bg-surface-900 border border-surface-700 rounded-2xl shadow-2xl">
+            {showCreateDca && typeof document !== 'undefined' && createPortal(
+                <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+                    <div className="w-full max-w-2xl my-8 max-h-[92vh] overflow-y-auto bg-surface-900 border border-surface-700 rounded-2xl shadow-2xl">
                         <div className="flex items-center justify-between px-6 py-4 border-b border-surface-700/60">
-                            <h3 className="text-xl font-semibold text-white">Create DCA Organization</h3>
+                            <h3 className="text-xl font-semibold text-surface-100">Create DCA Organization</h3>
                             <button
                                 onClick={() => {
                                     setShowCreateDca(false);
-                                    setNewDca({ dca_id: '', dca_name: '', region_coverage: '', contact_email: '' });
+                                    setNewDca({ dca_id: '', dca_name: '', region_coverage: '', contact_email: '', dca_password: '' });
                                 }}
                                 className="btn-secondary p-2"
                                 title="Close"
@@ -438,12 +539,26 @@ export default function DcaManagementPage() {
                                     className="input-field"
                                 />
                             </div>
+                            <div className="space-y-1">
+                                <label className="text-xs text-surface-200/60 uppercase">DCA Login Password</label>
+                                <input
+                                    type="password"
+                                    value={newDca.dca_password}
+                                    onChange={(e) => setNewDca({ ...newDca, dca_password: e.target.value })}
+                                    placeholder="Enter 6-character password"
+                                    className="input-field"
+                                    minLength={6}
+                                    maxLength={6}
+                                    required
+                                />
+                                <p className="text-[11px] text-surface-200/50">Exactly 6 characters. This password is used for DCA login.</p>
+                            </div>
                             <div className="flex justify-end gap-2 pt-2">
                                 <button
                                     type="button"
                                     onClick={() => {
                                         setShowCreateDca(false);
-                                        setNewDca({ dca_id: '', dca_name: '', region_coverage: '', contact_email: '' });
+                                        setNewDca({ dca_id: '', dca_name: '', region_coverage: '', contact_email: '', dca_password: '' });
                                     }}
                                     className="btn-secondary"
                                 >
@@ -453,14 +568,15 @@ export default function DcaManagementPage() {
                             </div>
                         </form>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
-            {showCreateManager && (
-                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="w-full max-w-2xl bg-surface-900 border border-surface-700 rounded-2xl shadow-2xl">
+            {showCreateManager && typeof document !== 'undefined' && createPortal(
+                <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+                    <div className="w-full max-w-2xl my-8 max-h-[92vh] overflow-y-auto bg-surface-900 border border-surface-700 rounded-2xl shadow-2xl">
                         <div className="flex items-center justify-between px-6 py-4 border-b border-surface-700/60">
-                            <h3 className="text-xl font-semibold text-white">Add User</h3>
+                            <h3 className="text-xl font-semibold text-surface-100">Add User</h3>
                             <button
                                 onClick={() => {
                                     setShowCreateManager(false);
@@ -509,14 +625,15 @@ export default function DcaManagementPage() {
                             </div>
                         </form>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
-            {editingManager && (
-                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="w-full max-w-2xl bg-surface-900 border border-surface-700 rounded-2xl shadow-2xl">
+            {editingManager && typeof document !== 'undefined' && createPortal(
+                <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+                    <div className="w-full max-w-2xl my-8 max-h-[92vh] overflow-y-auto bg-surface-900 border border-surface-700 rounded-2xl shadow-2xl">
                         <div className="flex items-center justify-between px-6 py-4 border-b border-surface-700/60">
-                            <h3 className="text-xl font-semibold text-white">Edit User</h3>
+                            <h3 className="text-xl font-semibold text-surface-100">Edit User</h3>
                             <button onClick={() => setEditingManager(null)} className="btn-secondary p-2" title="Close">
                                 <X className="w-4 h-4" />
                             </button>
@@ -547,7 +664,8 @@ export default function DcaManagementPage() {
                             </div>
                         </form>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

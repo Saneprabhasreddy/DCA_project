@@ -47,8 +47,17 @@ exports.ingest = async (req, res) => {
         const users = [
             { username: 'admin', password: 'admin123', role: 'admin', dca_id: null },
             { username: 'manager', password: 'manager123', role: 'manager', dca_id: null },
-            { username: 'dca_user', password: 'dca123', role: 'dca_user', dca_id: 'DCA-01' },
         ];
+
+        // Seed one login account per DCA org.
+        for (let i = 1; i <= 10; i++) {
+            users.push({
+                username: `dca_user_${String(i).padStart(2, '0')}`,
+                password: '123456',
+                role: 'dca_user',
+                dca_id: `DCA-${String(i).padStart(2, '0')}`,
+            });
+        }
 
         for (const u of users) {
             const hash = await bcrypt.hash(u.password, salt);
@@ -172,15 +181,54 @@ exports.ingest = async (req, res) => {
 // POST /api/admin/dcas
 exports.createDca = async (req, res) => {
     try {
-        const { dca_id, dca_name, region_coverage, contact_email } = req.body;
+        const { dca_id, dca_name, region_coverage, contact_email, dca_password } = req.body;
         if (!dca_id || !dca_name) {
             return res.status(400).json({ error: 'dca_id and dca_name required' });
+        }
+        const nextPassword = String(dca_password || '').trim();
+        if (nextPassword.length !== 6) {
+            return res.status(400).json({ error: 'DCA password must be exactly 6 characters' });
         }
         const existing = await DcaOrg.findOne({ dca_id });
         if (existing) {
             return res.status(400).json({ error: 'DCA already exists' });
         }
-        const dca = await DcaOrg.create({ dca_id, dca_name, region_coverage: region_coverage || '', contact_email: contact_email || '' });
+
+        const digitsMatch = String(dca_id).match(/(\d+)$/);
+        const sanitizedDcaId = String(dca_id).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+        const baseUsername = digitsMatch
+            ? `dca_user_${digitsMatch[1].padStart(2, '0')}`
+            : `dca_user_${sanitizedDcaId || 'new'}`;
+
+        let dcaUsername = baseUsername;
+        let suffix = 1;
+        while (await User.findOne({ username: dcaUsername })) {
+            dcaUsername = `${baseUsername}_${suffix}`;
+            suffix += 1;
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        const password_hash = await bcrypt.hash(nextPassword, salt);
+
+        const dca = await DcaOrg.create({
+            dca_id,
+            dca_name,
+            region_coverage: region_coverage || '',
+            contact_email: contact_email || '',
+        });
+
+        try {
+            await User.create({
+                username: dcaUsername,
+                password_hash,
+                role: 'dca_user',
+                dca_id,
+                is_active: true,
+            });
+        } catch (userErr) {
+            await DcaOrg.deleteOne({ _id: dca._id });
+            throw userErr;
+        }
 
         await AuditLog.create({
             actor_user: req.user.username,
@@ -190,7 +238,12 @@ exports.createDca = async (req, res) => {
             after: dca.toObject(),
         });
 
-        res.status(201).json(dca);
+        res.status(201).json({
+            ...dca.toObject(),
+            dca_user_credentials: {
+                username: dcaUsername,
+            },
+        });
     } catch (err) {
         console.error('Create DCA error:', err);
         res.status(500).json({ error: err.message });
@@ -250,16 +303,23 @@ exports.deleteDca = async (req, res) => {
         }
         if (!dca) return res.status(404).json({ error: 'DCA not found' });
 
-        const [linkedUsers, linkedCases] = await Promise.all([
-            User.countDocuments({ role: 'dca_user', dca_id: dca.dca_id }),
-            Case.countDocuments({ assigned_dca_id: dca.dca_id }),
+        // Before deleting the DCA org:
+        // 1) remove all DCA user accounts linked to this DCA
+        // 2) release all non-closed cases so they can be reassigned
+        const [usersDeleteResult, releasedCasesResult] = await Promise.all([
+            User.deleteMany({ role: 'dca_user', dca_id: dca.dca_id }),
+            Case.updateMany(
+                { assigned_dca_id: dca.dca_id, current_stage_snapshot: { $ne: 'Closed' } },
+                {
+                    $set: {
+                        assigned_dca_id: null,
+                        assigned_date: null,
+                        assigned_by: null,
+                        current_stage_snapshot: 'Allocated',
+                    },
+                }
+            ),
         ]);
-
-        if (linkedUsers > 0 || linkedCases > 0) {
-            return res.status(400).json({
-                error: `Cannot delete ${dca.dca_id}. Linked users: ${linkedUsers}, linked cases: ${linkedCases}. Reassign or remove them first.`,
-            });
-        }
 
         const before = dca.toObject();
         await DcaOrg.deleteOne({ _id: dca._id });
@@ -270,9 +330,17 @@ exports.deleteDca = async (req, res) => {
             entity_type: 'dca_org',
             entity_id: dca.dca_id,
             before,
+            after: {
+                deleted_dca_users: usersDeleteResult.deletedCount || 0,
+                released_open_cases: releasedCasesResult.modifiedCount || 0,
+            },
         });
 
-        res.json({ message: 'DCA deleted' });
+        res.json({
+            message: 'DCA deleted',
+            deleted_dca_users: usersDeleteResult.deletedCount || 0,
+            released_open_cases: releasedCasesResult.modifiedCount || 0,
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -469,6 +537,9 @@ exports.updateDcaUser = async (req, res) => {
         }
 
         if (req.body.password) {
+            if (String(req.body.password).trim().length !== 6) {
+                return res.status(400).json({ error: 'DCA user password must be exactly 6 characters' });
+            }
             const salt = await bcrypt.genSalt(10);
             user.password_hash = await bcrypt.hash(req.body.password, salt);
         }
