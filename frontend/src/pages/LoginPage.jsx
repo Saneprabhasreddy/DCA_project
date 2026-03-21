@@ -60,7 +60,7 @@ export default function LoginPage() {
                         <Brain className="w-8 h-8 text-white" />
                     </div>
                     <h1 className="text-3xl font-bold gradient-text">SmartDCA</h1>
-                    <p className="text-surface-200/50 mt-1">AI-Powered Recovery Platform</p>
+                    <p className="text-surface-200/50 mt-1">Recovery Platform</p>
                 </div>
 
                 {/* Login Card */}

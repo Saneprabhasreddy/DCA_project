@@ -9,6 +9,7 @@ import CreateCasePage from './pages/CreateCasePage';
 import DcaManagementPage from './pages/DcaManagementPage';
 import IngestPage from './pages/IngestPage';
 import MyCasesPage from './pages/MyCasesPage';
+import DcaDashboardPage from './pages/DcaDashboardPage';
 
 function ProtectedRoute({ children, roles }) {
     const { user, loading } = useAuth();
@@ -25,7 +26,7 @@ export default function App() {
 
     return (
         <Routes>
-            <Route path="/login" element={user ? <Navigate to={user.role === 'dca_user' ? '/my-cases' : '/dashboard'} replace /> : <LoginPage />} />
+            <Route path="/login" element={user ? <Navigate to={user.role === 'dca_user' ? '/my-dashboard' : '/dashboard'} replace /> : <LoginPage />} />
 
             {/* Admin/Manager routes */}
             <Route path="/dashboard" element={<ProtectedRoute roles={['admin', 'manager']}><DashboardPage /></ProtectedRoute>} />
@@ -38,6 +39,7 @@ export default function App() {
             <Route path="/admin/ingest" element={<ProtectedRoute roles={['admin']}><IngestPage /></ProtectedRoute>} />
 
             {/* DCA User */}
+            <Route path="/my-dashboard" element={<ProtectedRoute roles={['dca_user']}><DcaDashboardPage /></ProtectedRoute>} />
             <Route path="/my-cases" element={<ProtectedRoute roles={['dca_user']}><MyCasesPage /></ProtectedRoute>} />
 
             {/* Default */}

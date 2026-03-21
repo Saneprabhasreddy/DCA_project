@@ -49,7 +49,7 @@ export default function Layout({ children }) {
                         </div>
                         <div>
                             <h1 className="text-lg font-bold gradient-text">SmartDCA</h1>
-                            <p className="text-xs text-surface-200/50">AI Recovery Platform</p>
+                            <p className="text-xs text-surface-200/50">Recovery Platform</p>
                         </div>
                     </div>
                 </div>
@@ -77,6 +77,9 @@ export default function Layout({ children }) {
                             <p className={`${sectionLabelClass} mt-2`}>
                                 My Portal
                             </p>
+                            <NavLink to="/my-dashboard" className={linkClass}>
+                                <LayoutDashboard className="w-4 h-4" /> My Dashboard
+                            </NavLink>
                             <NavLink to="/my-cases" className={linkClass}>
                                 <FileText className="w-4 h-4" /> My Cases
                             </NavLink>

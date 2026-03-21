@@ -32,7 +32,7 @@ export default function IngestPage() {
                 <h2 className="text-xl font-semibold text-surface-100 mb-2">Seed MongoDB from Dataset</h2>
                 <p className="text-surface-200/50 mb-6 max-w-md mx-auto">
                     This will load <strong>cases.csv</strong> and <strong>interactions.csv</strong> from the FedEx DCA synthetic dataset into MongoDB.
-                    It also seeds DCA-01 through DCA-10 organizations and default user accounts.
+                    It also seeds available DCA organizations and default user accounts.
                 </p>
 
                 <button

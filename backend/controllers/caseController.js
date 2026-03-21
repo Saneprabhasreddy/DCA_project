@@ -27,6 +27,10 @@ exports.listCases = async (req, res) => {
         if (req.query.filter === 'overdue_sla') {
             query.sla_due_date = { $lt: new Date() };
             query.current_stage_snapshot = { $ne: 'Closed' };
+        } else if (req.query.filter === 'open') {
+            query.current_stage_snapshot = { $ne: 'Closed' };
+        } else if (req.query.filter === 'closed') {
+            query.current_stage_snapshot = 'Closed';
         } else if (req.query.filter === 'ptp') {
             query.$or = [{ promised_to_pay_flag: 1 }, { current_stage_snapshot: 'PTP' }];
         } else if (req.query.filter === 'dispute') {
