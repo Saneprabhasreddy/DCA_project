@@ -72,7 +72,10 @@ export default function CaseDetailPage() {
             }
             fetchCase();
         } catch (err) {
-            toast.error(err.response?.data?.error || 'Prediction failed');
+            const payload = err.response?.data || {};
+            const message = payload.error || 'Prediction failed';
+            const details = payload.details ? ` ${payload.details}` : '';
+            toast.error(`${message}${details}`.trim());
         } finally {
             setPredicting(false);
         }
@@ -90,7 +93,10 @@ export default function CaseDetailPage() {
                 toast.success('Recommendation completed');
             }
         } catch (err) {
-            toast.error(err.response?.data?.error || 'Recommendation failed');
+            const payload = err.response?.data || {};
+            const message = payload.error || 'Recommendation failed';
+            const details = payload.details ? ` ${payload.details}` : '';
+            toast.error(`${message}${details}`.trim());
         } finally {
             setRecommending(false);
         }
