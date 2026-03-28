@@ -3,6 +3,7 @@ const path = require('path');
 module.exports = {
     PORT: process.env.PORT || process.env.BACKEND_PORT,
     MONGO_URI: process.env.MONGO_URI || process.env.MONGODB_URI,
+    MONGO_DB_NAME: process.env.MONGO_DB_NAME,
     CORS_ORIGINS: process.env.CORS_ORIGINS,
     JWT_SECRET: process.env.JWT_SECRET,
     JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '24h',

@@ -10,11 +10,20 @@ export default function IngestPage() {
     const handleIngest = async () => {
         setLoading(true);
         try {
-            const res = await api.post('/admin/ingest');
+            const res = await api.post('/admin/ingest', {}, { timeout: 300000 });
             setResult(res.data);
-            toast.success('Dataset ingested successfully!');
+            if (res.data?.training?.attempted && res.data?.training?.success === false) {
+                toast.error(`Ingestion done, auto-training failed: ${res.data.training.error || 'Unknown error'}`);
+            } else if (res.data?.training?.attempted) {
+                toast.success('Ingestion and model training completed successfully!');
+            } else {
+                toast.success('Dataset ingested successfully!');
+            }
         } catch (err) {
-            toast.error(err.response?.data?.error || 'Ingestion failed');
+            const payload = err.response?.data || {};
+            const message = payload.error || err.message || 'Ingestion failed';
+            const details = payload.details ? ` ${payload.details}` : '';
+            toast.error(`${message}${details}`.trim());
         } finally {
             setLoading(false);
         }
@@ -68,6 +77,19 @@ export default function IngestPage() {
                                 </div>
                             ))}
                         </div>
+                        {result.training?.attempted && (
+                            <div className="mt-4 text-sm">
+                                {result.training.success ? (
+                                    <p className="text-emerald-300">
+                                        Models retrained and artifacts updated in `{result.training.artifacts_dir}`.
+                                    </p>
+                                ) : (
+                                    <p className="text-amber-300">
+                                        Data ingestion succeeded, but auto-training failed: {result.training.error}
+                                    </p>
+                                )}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

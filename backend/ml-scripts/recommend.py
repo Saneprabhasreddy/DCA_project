@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 from typing import Dict, List, Optional
+from urllib.parse import urlparse
 
 import numpy as np
 import pandas as pd
@@ -32,7 +33,36 @@ CAT_COLS = ["region", "industry", "credit_score_band", "last_contact_channel", "
 DEFAULT_DCAS = [f"DCA-{i:02d}" for i in range(1, 11)]  # DCA-01..DCA-10
 
 
-def get_available_dcas(mongo_uri: str, capacity_left: Optional[Dict[str, int]] = None) -> List[str]:
+def extract_db_name_from_uri(mongo_uri: str) -> Optional[str]:
+    try:
+        parsed = urlparse(mongo_uri)
+        path = (parsed.path or "").lstrip("/")
+        return path.split("?")[0] if path else None
+    except Exception:
+        return None
+
+
+def resolve_database(client: MongoClient, mongo_uri: str, db_name: Optional[str] = None):
+    candidates = [
+        db_name,
+        os.getenv("MONGO_DB_NAME"),
+        extract_db_name_from_uri(mongo_uri),
+    ]
+    for name in candidates:
+        if name:
+            return client[name]
+
+    # Last resort fallback for URIs without db name.
+    try:
+        names = [n for n in client.list_database_names() if n not in {"admin", "local", "config"}]
+        if names:
+            return client[names[0]]
+    except Exception:
+        pass
+    return None
+
+
+def get_available_dcas(mongo_uri: str, capacity_left: Optional[Dict[str, int]] = None, db_name: Optional[str] = None) -> List[str]:
     """
     Returns ALL DCAs found in MongoDB cases collection (assigned_dca_id column).
     If capacity_left is provided, keep only DCAs with capacity > 0.
@@ -42,8 +72,11 @@ def get_available_dcas(mongo_uri: str, capacity_left: Optional[Dict[str, int]] =
 
     # 1) From MongoDB
     try:
-        client = MongoClient(mongo_uri)
-        db = client.get_default_database()
+        client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000, connectTimeoutMS=5000)
+        db = resolve_database(client, mongo_uri, db_name)
+        if db is None:
+            client.close()
+            return DEFAULT_DCAS
         cursor = db["cases"].find({"assigned_dca_id": {"$regex": "^DCA"}}, {"_id": 0, "assigned_dca_id": 1})
         dcas = [str(doc["assigned_dca_id"]) for doc in cursor if doc.get("assigned_dca_id")]
         client.close()
@@ -78,22 +111,29 @@ def invoice_bucket(amount: float) -> str:
     return "XL"
 
 
-def build_dca_segment_table(mongo_uri: str) -> Dict:
+def build_dca_segment_table(mongo_uri: str, db_name: Optional[str] = None) -> Dict:
     """
     Builds historical performance multiplier per:
       (dca_id, region, industry, invoice_bucket)
     Uses recovered_flag recovery rate as performance signal.
     Returns a dict seg_table[key] = {"recovered": int, "total": int}
     """
-    client = MongoClient(mongo_uri)
-    db = client.get_default_database()
-    cases_cursor = db["cases"].find(
-        {"assigned_dca_id": {"$regex": "^DCA"}},
-        {"_id": 0, "assigned_dca_id": 1, "region": 1, "industry": 1,
-         "invoice_amount_usd": 1, "recovered_flag": 1}
-    )
-    hist_list = list(cases_cursor)
-    client.close()
+    try:
+        client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000, connectTimeoutMS=5000)
+        db = resolve_database(client, mongo_uri, db_name)
+        if db is None:
+            client.close()
+            return {}, 0.5
+
+        cases_cursor = db["cases"].find(
+            {"assigned_dca_id": {"$regex": "^DCA"}},
+            {"_id": 0, "assigned_dca_id": 1, "region": 1, "industry": 1,
+             "invoice_amount_usd": 1, "recovered_flag": 1}
+        )
+        hist_list = list(cases_cursor)
+        client.close()
+    except Exception:
+        return {}, 0.5
 
     # Build segment table
     seg_table = {}
@@ -154,6 +194,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--artifacts_dir", default="artifacts")
     ap.add_argument("--mongo_uri", required=True, help="MongoDB URI")
+    ap.add_argument("--db_name", default=None, help="Optional MongoDB database name")
     ap.add_argument("--input_json", required=True, help="New case features as JSON string")
     ap.add_argument("--top_k", type=int, default=3)
     ap.add_argument("--capacity_json", default=None, help="Optional: {'DCA-01':120, ...} active capacity left")
@@ -177,10 +218,10 @@ def main():
         capacity_left = json.loads(args.capacity_json)
 
     # Build historical DCA segment multipliers
-    seg_table, global_rate = build_dca_segment_table(args.mongo_uri)
+    seg_table, global_rate = build_dca_segment_table(args.mongo_uri, args.db_name)
 
     # Get available DCAs
-    dcas = get_available_dcas(args.mongo_uri, capacity_left)
+    dcas = get_available_dcas(args.mongo_uri, capacity_left, args.db_name)
 
     # Score each DCA
     per_dca = {}

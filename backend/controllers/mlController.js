@@ -210,7 +210,16 @@ exports.recommend = async (req, res) => {
         };
 
         const scriptPath = path.join(__dirname, '../ml-scripts/recommend.py');
-        const pythonProcess = spawn(PYTHON_BIN, [scriptPath, '--input_json', JSON.stringify(caseJson), '--mongo_uri', config.MONGO_URI, '--artifacts_dir', ARTIFACTS_DIR]);
+        const args = [
+            scriptPath,
+            '--input_json', JSON.stringify(caseJson),
+            '--mongo_uri', config.MONGO_URI,
+            '--artifacts_dir', ARTIFACTS_DIR,
+        ];
+        if (config.MONGO_DB_NAME) {
+            args.push('--db_name', config.MONGO_DB_NAME);
+        }
+        const pythonProcess = spawn(PYTHON_BIN, args);
 
         let stdout = '';
         let stderr = '';
