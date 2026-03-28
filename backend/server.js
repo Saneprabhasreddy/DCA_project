@@ -67,8 +67,37 @@ const config = require('./config');
 
 const app = express();
 
+const defaultAllowedOrigins = [
+    'https://dcamodel.netlify.app',
+    'https://www.dcamodel.netlify.app',
+    'http://localhost:5173',
+    'http://localhost:3000',
+];
+
+const allowedOrigins = (config.CORS_ORIGINS
+    ? config.CORS_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
+    : defaultAllowedOrigins
+);
+
+const corsOptions = {
+    origin(origin, callback) {
+        // Allow server-to-server calls and tools that do not send Origin.
+        if (!origin) {
+            return callback(null, true);
+        }
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    optionsSuccessStatus: 204,
+};
+
 // Middleware
-app.use(cors());
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(express.json({ limit: '50mb' }));
 app.use(morgan('dev'));
 
