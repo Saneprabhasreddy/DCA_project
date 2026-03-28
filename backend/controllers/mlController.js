@@ -8,6 +8,24 @@ const path = require('path');
 
 const PROJECT_PYTHON = path.resolve(__dirname, '../../.venv/bin/python3');
 const PYTHON_BIN = config.PYTHON_BIN || (fs.existsSync(PROJECT_PYTHON) ? PROJECT_PYTHON : 'python3');
+const BACKEND_ROOT = path.resolve(__dirname, '..');
+const REPO_ROOT = path.resolve(__dirname, '../..');
+
+function resolveCasesDatasetPath() {
+    const configuredDir = config.DATA_DIR
+        ? (path.isAbsolute(config.DATA_DIR)
+            ? config.DATA_DIR
+            : path.resolve(BACKEND_ROOT, config.DATA_DIR))
+        : null;
+
+    const candidates = [
+        configuredDir ? path.join(configuredDir, 'cases.csv') : null,
+        path.resolve(BACKEND_ROOT, 'data/fedex_dca_synthetic_dataset/cases.csv'),
+        path.resolve(REPO_ROOT, 'data/fedex_dca_synthetic_dataset/cases.csv'),
+    ].filter(Boolean);
+
+    return candidates.find((candidate) => fs.existsSync(candidate)) || candidates[0];
+}
 
 function buildMlErrorPayload(baseMessage, stderr) {
     const details = (stderr || '').trim();
@@ -182,7 +200,8 @@ exports.recommend = async (req, res) => {
 exports.train = async (req, res) => {
     try {
         const scriptPath = path.join(__dirname, '../ml-scripts/train.py');
-        const pythonProcess = spawn(PYTHON_BIN, [scriptPath, '--dataset_path', path.join(__dirname, '../../data/fedex_dca_synthetic_dataset/cases.csv'), '--artifacts_dir', path.join(__dirname, '../../artifacts')]);
+        const datasetPath = resolveCasesDatasetPath();
+        const pythonProcess = spawn(PYTHON_BIN, [scriptPath, '--dataset_path', datasetPath, '--artifacts_dir', path.join(__dirname, '../../artifacts')]);
 
         let stdout = '';
         let stderr = '';

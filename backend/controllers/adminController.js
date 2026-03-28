@@ -10,19 +10,50 @@ const Interaction = require('../models/Interaction');
 const AuditLog = require('../models/AuditLog');
 const config = require('../config');
 
+function resolveDataDirectory() {
+    const backendRoot = path.resolve(__dirname, '..');
+    const repoRoot = path.resolve(__dirname, '../..');
+
+    const configuredDataDir = config.DATA_DIR
+        ? (path.isAbsolute(config.DATA_DIR)
+            ? config.DATA_DIR
+            : path.resolve(backendRoot, config.DATA_DIR))
+        : null;
+
+    const candidates = [
+        configuredDataDir,
+        path.resolve(backendRoot, 'data/fedex_dca_synthetic_dataset'),
+        path.resolve(repoRoot, 'data/fedex_dca_synthetic_dataset'),
+    ].filter(Boolean);
+
+    const existing = candidates.find((dir) =>
+        fs.existsSync(path.join(dir, 'cases.csv'))
+    );
+
+    return {
+        dataDir: existing || candidates[0],
+        candidates,
+    };
+}
+
 // POST /api/admin/ingest — load dataset into Mongo
 exports.ingest = async (req, res) => {
     try {
-        const dataDir = config.DATA_DIR;
-        if (!dataDir) throw new Error('DATA_DIR environment variable not set');
+        const { dataDir, candidates } = resolveDataDirectory();
+        if (!dataDir) {
+            throw new Error('No data directory candidates available');
+        }
 
         const casesPath = path.join(dataDir, 'cases.csv');
         const interactionsPath = path.join(dataDir, 'interactions.csv');
 
-        console.log(`📁 Data directory: ${dataDir}`);
+        console.log(`Data directory: ${dataDir}`);
 
         if (!fs.existsSync(casesPath)) {
-            return res.status(400).json({ error: 'cases.csv not found at ' + casesPath });
+            return res.status(400).json({
+                error: 'cases.csv not found',
+                searched_paths: candidates,
+            });
         }
 
         // 1) Seed DCA orgs DCA-01..DCA-10
