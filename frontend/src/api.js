@@ -1,6 +1,24 @@
 import axios from 'axios';
 
-const API_BASE = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '');
+function normalizeApiBase(rawValue) {
+    const trimmed = String(rawValue || '/api').trim().replace(/\/+$/, '');
+
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+        try {
+            const parsed = new URL(trimmed);
+            if (!parsed.pathname || parsed.pathname === '/') {
+                parsed.pathname = '/api';
+            }
+            return parsed.toString().replace(/\/+$/, '');
+        } catch {
+            return trimmed;
+        }
+    }
+
+    return trimmed;
+}
+
+const API_BASE = normalizeApiBase(import.meta.env.VITE_API_URL || '/api');
 
 const api = axios.create({
     baseURL: API_BASE,

@@ -3,11 +3,13 @@ const path = require('path');
 const csv = require('csv-parser');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
+const { spawn } = require('child_process');
 const User = require('../models/User');
 const DcaOrg = require('../models/DcaOrg');
 const Case = require('../models/Case');
 const Interaction = require('../models/Interaction');
 const AuditLog = require('../models/AuditLog');
+const MlMetric = require('../models/MlMetric');
 const config = require('../config');
 
 function resolveDataDirectory() {
@@ -34,6 +36,102 @@ function resolveDataDirectory() {
         dataDir: existing || candidates[0],
         candidates,
     };
+}
+
+function resolvePythonBin() {
+    const backendRoot = path.resolve(__dirname, '..');
+    const repoRoot = path.resolve(__dirname, '../..');
+    const backendPython = path.resolve(backendRoot, '.venv/bin/python3');
+    const repoPython = path.resolve(repoRoot, '.venv/bin/python3');
+
+    if (config.PYTHON_BIN) {
+        const rawConfigured = String(config.PYTHON_BIN).trim();
+        const looksLikePath =
+            rawConfigured.startsWith('.') ||
+            rawConfigured.startsWith('/') ||
+            rawConfigured.includes('/');
+
+        if (!looksLikePath) {
+            return rawConfigured;
+        }
+
+        const configuredPath = path.isAbsolute(rawConfigured)
+            ? rawConfigured
+            : path.resolve(backendRoot, rawConfigured);
+
+        if (fs.existsSync(configuredPath)) {
+            return configuredPath;
+        }
+    }
+
+    if (fs.existsSync(backendPython)) return backendPython;
+    if (fs.existsSync(repoPython)) return repoPython;
+    return 'python3';
+}
+
+function resolveArtifactsDir() {
+    const backendRoot = path.resolve(__dirname, '..');
+    const repoRoot = path.resolve(__dirname, '../..');
+
+    const configured = config.ARTIFACTS_DIR
+        ? (path.isAbsolute(config.ARTIFACTS_DIR)
+            ? config.ARTIFACTS_DIR
+            : path.resolve(backendRoot, config.ARTIFACTS_DIR))
+        : null;
+
+    const candidates = [
+        configured,
+        path.resolve(backendRoot, 'artifacts'),
+        path.resolve(repoRoot, 'artifacts'),
+    ].filter(Boolean);
+
+    return candidates.find((candidate) => fs.existsSync(candidate)) || candidates[0];
+}
+
+async function trainArtifactsFromDataset(casesPath) {
+    const scriptPath = path.join(__dirname, '../ml-scripts/train.py');
+    const pythonBin = resolvePythonBin();
+    const artifactsDir = resolveArtifactsDir();
+
+    return await new Promise((resolve, reject) => {
+        const py = spawn(pythonBin, [
+            scriptPath,
+            '--dataset_path', casesPath,
+            '--artifacts_dir', artifactsDir,
+        ]);
+
+        let stdout = '';
+        let stderr = '';
+
+        py.on('error', (spawnErr) => {
+            reject(new Error(`Unable to start Python process (${pythonBin}): ${spawnErr.message}`));
+        });
+
+        py.stdout.on('data', (data) => {
+            stdout += data.toString();
+        });
+
+        py.stderr.on('data', (data) => {
+            stderr += data.toString();
+        });
+
+        py.on('close', async (code) => {
+            if (code !== 0) {
+                return reject(new Error((stderr || '').trim() || `Training script exited with code ${code}`));
+            }
+
+            try {
+                const metrics = JSON.parse(stdout.trim());
+                await MlMetric.create({
+                    trained_at: new Date(),
+                    metrics,
+                });
+                resolve({ metrics, artifactsDir, pythonBin });
+            } catch (parseErr) {
+                reject(new Error(`Failed to parse training output: ${parseErr.message}`));
+            }
+        });
+    });
 }
 
 // POST /api/admin/ingest — load dataset into Mongo
@@ -187,13 +285,41 @@ exports.ingest = async (req, res) => {
             }
         }
 
+        let training = { attempted: false };
+        if (config.AUTO_TRAIN_ON_INGEST) {
+            training.attempted = true;
+            try {
+                const trained = await trainArtifactsFromDataset(casesPath);
+                training = {
+                    attempted: true,
+                    success: true,
+                    artifacts_dir: trained.artifactsDir,
+                    python_bin: trained.pythonBin,
+                    metrics: trained.metrics,
+                };
+            } catch (trainErr) {
+                console.error('Auto-train after ingest failed:', trainErr.message);
+                training = {
+                    attempted: true,
+                    success: false,
+                    error: trainErr.message,
+                };
+            }
+        }
+
         // Audit log
         await AuditLog.create({
             actor_user: req.user.username,
             action: 'INGEST_DATASET',
             entity_type: 'system',
             entity_id: 'ingest',
-            after: { cases: casesData.length, interactions: interactionsCount, dcas: 10, users: users.length },
+            after: {
+                cases: casesData.length,
+                interactions: interactionsCount,
+                dcas: 10,
+                users: users.length,
+                auto_train: training,
+            },
         });
 
         res.json({
@@ -202,6 +328,7 @@ exports.ingest = async (req, res) => {
             interactions: interactionsCount,
             dcas: 10,
             users: users.length,
+            training,
         });
     } catch (err) {
         console.error('Ingest error:', err);
