@@ -1,4 +1,49 @@
-require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
+
+function loadEnvironment() {
+    const envPath = path.resolve(__dirname, '../.env');
+
+    try {
+        require('dotenv').config({ path: envPath });
+        return;
+    } catch (err) {
+        if (err.code !== 'MODULE_NOT_FOUND') {
+            console.warn('⚠️  dotenv could not be initialized:', err.message);
+            return;
+        }
+        console.warn('ℹ️  dotenv is not installed; continuing with process env only');
+    }
+
+    if (!fs.existsSync(envPath)) {
+        return;
+    }
+
+    const file = fs.readFileSync(envPath, 'utf8');
+    for (const rawLine of file.split(/\r?\n/)) {
+        const line = rawLine.trim();
+        if (!line || line.startsWith('#') || !line.includes('=')) {
+            continue;
+        }
+
+        const idx = line.indexOf('=');
+        const key = line.slice(0, idx).trim();
+        let value = line.slice(idx + 1).trim();
+
+        if (
+            (value.startsWith('"') && value.endsWith('"')) ||
+            (value.startsWith("'") && value.endsWith("'"))
+        ) {
+            value = value.slice(1, -1);
+        }
+
+        if (key && process.env[key] === undefined) {
+            process.env[key] = value;
+        }
+    }
+}
+
+loadEnvironment();
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
