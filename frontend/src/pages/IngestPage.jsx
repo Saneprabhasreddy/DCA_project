@@ -12,7 +12,9 @@ export default function IngestPage() {
         try {
             const res = await api.post('/admin/ingest', {}, { timeout: 300000 });
             setResult(res.data);
-            if (res.data?.training?.attempted && res.data?.training?.success === false) {
+            if (res.data?.training?.mode === 'async' && res.data?.training?.started) {
+                toast.success('Ingestion completed. Model training started in background.');
+            } else if (res.data?.training?.attempted && res.data?.training?.success === false) {
                 toast.error(`Ingestion done, auto-training failed: ${res.data.training.error || 'Unknown error'}`);
             } else if (res.data?.training?.attempted) {
                 toast.success('Ingestion and model training completed successfully!');
@@ -79,7 +81,11 @@ export default function IngestPage() {
                         </div>
                         {result.training?.attempted && (
                             <div className="mt-4 text-sm">
-                                {result.training.success ? (
+                                {result.training.mode === 'async' && result.training.started ? (
+                                    <p className="text-emerald-300">
+                                        Models are training in background. Artifacts will update in `{result.training.artifacts_dir}`.
+                                    </p>
+                                ) : result.training.success ? (
                                     <p className="text-emerald-300">
                                         Models retrained and artifacts updated in `{result.training.artifacts_dir}`.
                                     </p>

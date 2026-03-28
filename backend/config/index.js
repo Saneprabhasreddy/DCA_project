@@ -14,6 +14,8 @@ module.exports = {
         path.resolve(__dirname, '../artifacts'),
     AUTO_TRAIN_ON_INGEST:
         String(process.env.AUTO_TRAIN_ON_INGEST || 'true').toLowerCase() !== 'false',
+    AUTO_TRAIN_SYNC:
+        String(process.env.AUTO_TRAIN_SYNC || 'false').toLowerCase() === 'true',
     DATA_DIR:
         process.env.DATA_DIR ||
         path.resolve(__dirname, '../data/fedex_dca_synthetic_dataset'),

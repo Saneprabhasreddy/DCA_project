@@ -134,6 +134,107 @@ async function trainArtifactsFromDataset(casesPath) {
     });
 }
 
+function startTrainingInBackground(casesPath, actorUsername = 'system') {
+    const scriptPath = path.join(__dirname, '../ml-scripts/train.py');
+    const pythonBin = resolvePythonBin();
+    const artifactsDir = resolveArtifactsDir();
+
+    try {
+        const py = spawn(pythonBin, [
+            scriptPath,
+            '--dataset_path', casesPath,
+            '--artifacts_dir', artifactsDir,
+        ]);
+
+        let stdout = '';
+        let stderr = '';
+
+        py.stdout.on('data', (data) => {
+            stdout += data.toString();
+        });
+
+        py.stderr.on('data', (data) => {
+            stderr += data.toString();
+        });
+
+        py.on('error', async (spawnErr) => {
+            const errMsg = `Background auto-train failed to start: ${spawnErr.message}`;
+            console.error(errMsg);
+            try {
+                await AuditLog.create({
+                    actor_user: actorUsername,
+                    action: 'AUTO_TRAIN_FAILED',
+                    entity_type: 'system',
+                    entity_id: 'auto-train',
+                    after: { error: errMsg },
+                });
+            } catch (auditErr) {
+                console.error('Auto-train audit log error:', auditErr.message);
+            }
+        });
+
+        py.on('close', async (code) => {
+            if (code !== 0) {
+                const errMsg = (stderr || '').trim() || `Training script exited with code ${code}`;
+                console.error('Background auto-train failed:', errMsg);
+                try {
+                    await AuditLog.create({
+                        actor_user: actorUsername,
+                        action: 'AUTO_TRAIN_FAILED',
+                        entity_type: 'system',
+                        entity_id: 'auto-train',
+                        after: { error: errMsg, code },
+                    });
+                } catch (auditErr) {
+                    console.error('Auto-train audit log error:', auditErr.message);
+                }
+                return;
+            }
+
+            try {
+                const metrics = JSON.parse(stdout.trim());
+                await MlMetric.create({
+                    trained_at: new Date(),
+                    metrics,
+                });
+                await AuditLog.create({
+                    actor_user: actorUsername,
+                    action: 'AUTO_TRAIN_SUCCESS',
+                    entity_type: 'system',
+                    entity_id: 'auto-train',
+                    after: { artifacts_dir: artifactsDir, python_bin: pythonBin, metrics },
+                });
+            } catch (parseErr) {
+                console.error('Background auto-train output parse error:', parseErr.message);
+                try {
+                    await AuditLog.create({
+                        actor_user: actorUsername,
+                        action: 'AUTO_TRAIN_FAILED',
+                        entity_type: 'system',
+                        entity_id: 'auto-train',
+                        after: { error: `Parse error: ${parseErr.message}` },
+                    });
+                } catch (auditErr) {
+                    console.error('Auto-train audit log error:', auditErr.message);
+                }
+            }
+        });
+
+        return {
+            started: true,
+            artifactsDir,
+            pythonBin,
+        };
+    } catch (err) {
+        return {
+            started: false,
+            error: err.message,
+            artifactsDir,
+            pythonBin,
+        };
+    }
+}
+
 // POST /api/admin/ingest — load dataset into Mongo
 exports.ingest = async (req, res) => {
     try {
@@ -288,21 +389,39 @@ exports.ingest = async (req, res) => {
         let training = { attempted: false };
         if (config.AUTO_TRAIN_ON_INGEST) {
             training.attempted = true;
-            try {
-                const trained = await trainArtifactsFromDataset(casesPath);
+            if (config.AUTO_TRAIN_SYNC) {
+                try {
+                    const trained = await trainArtifactsFromDataset(casesPath);
+                    training = {
+                        attempted: true,
+                        mode: 'sync',
+                        success: true,
+                        artifacts_dir: trained.artifactsDir,
+                        python_bin: trained.pythonBin,
+                        metrics: trained.metrics,
+                    };
+                } catch (trainErr) {
+                    console.error('Auto-train after ingest failed:', trainErr.message);
+                    training = {
+                        attempted: true,
+                        mode: 'sync',
+                        success: false,
+                        error: trainErr.message,
+                    };
+                }
+            } else {
+                const started = startTrainingInBackground(casesPath, req.user?.username || 'system');
                 training = {
                     attempted: true,
-                    success: true,
-                    artifacts_dir: trained.artifactsDir,
-                    python_bin: trained.pythonBin,
-                    metrics: trained.metrics,
-                };
-            } catch (trainErr) {
-                console.error('Auto-train after ingest failed:', trainErr.message);
-                training = {
-                    attempted: true,
-                    success: false,
-                    error: trainErr.message,
+                    mode: 'async',
+                    started: started.started,
+                    success: started.started,
+                    artifacts_dir: started.artifactsDir,
+                    python_bin: started.pythonBin,
+                    ...(started.error ? { error: started.error } : {}),
+                    message: started.started
+                        ? 'Auto-training started in background.'
+                        : 'Failed to start auto-training process.',
                 };
             }
         }
