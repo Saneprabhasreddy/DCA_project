@@ -74,10 +74,20 @@ const defaultAllowedOrigins = [
     'http://localhost:3000',
 ];
 
-const allowedOrigins = (config.CORS_ORIGINS
-    ? config.CORS_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
-    : defaultAllowedOrigins
-);
+function normalizeOrigin(value) {
+    return String(value || '').trim().replace(/\/+$/, '');
+}
+
+const configuredOrigins = (config.CORS_ORIGINS || '')
+    .split(',')
+    .map((origin) => normalizeOrigin(origin))
+    .filter(Boolean);
+
+const allowedOrigins = [...new Set(
+    [...defaultAllowedOrigins, ...configuredOrigins].map((origin) => normalizeOrigin(origin))
+)];
+
+console.log(`CORS allowed origins: ${allowedOrigins.join(', ')}`);
 
 const corsOptions = {
     origin(origin, callback) {
@@ -85,10 +95,11 @@ const corsOptions = {
         if (!origin) {
             return callback(null, true);
         }
-        if (allowedOrigins.includes(origin)) {
+        const normalizedOrigin = normalizeOrigin(origin);
+        if (allowedOrigins.includes(normalizedOrigin)) {
             return callback(null, true);
         }
-        return callback(new Error(`CORS blocked for origin: ${origin}`));
+        return callback(new Error(`CORS blocked for origin: ${normalizedOrigin}`));
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
