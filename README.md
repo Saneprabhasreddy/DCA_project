@@ -46,20 +46,17 @@ All models use **HistGradientBoosting** from scikit-learn with a custom preproce
 The project uses `dotenv` for configuration. **No secrets are hardcoded.**
 
 ### 1. Setup Environment Variables
-Copy the example environment files to create your headers:
+Create and maintain only these `.env` files:
 
 ```bash
 # Root (for Docker Compose)
-cp .env.example .env
+.env
 
 # Backend
-cp backend/.env.example backend/.env
+backend/.env
 
 # Frontend
-cp frontend/.env.example frontend/.env
-
-# ML Service
-cp ml-service/.env.example ml-service/.env
+frontend/.env
 ```
 
 ### 2. Default Credentials (in .env)

@@ -6,10 +6,46 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-const PROJECT_PYTHON = path.resolve(__dirname, '../../.venv/bin/python3');
-const PYTHON_BIN = config.PYTHON_BIN || (fs.existsSync(PROJECT_PYTHON) ? PROJECT_PYTHON : 'python3');
 const BACKEND_ROOT = path.resolve(__dirname, '..');
 const REPO_ROOT = path.resolve(__dirname, '../..');
+const BACKEND_PYTHON = path.resolve(BACKEND_ROOT, '.venv/bin/python3');
+const REPO_PYTHON = path.resolve(REPO_ROOT, '.venv/bin/python3');
+
+function resolvePythonBin() {
+    if (config.PYTHON_BIN) {
+        const configured = path.isAbsolute(config.PYTHON_BIN)
+            ? config.PYTHON_BIN
+            : path.resolve(BACKEND_ROOT, config.PYTHON_BIN);
+        return configured;
+    }
+
+    if (fs.existsSync(BACKEND_PYTHON)) {
+        return BACKEND_PYTHON;
+    }
+    if (fs.existsSync(REPO_PYTHON)) {
+        return REPO_PYTHON;
+    }
+    return 'python3';
+}
+
+function resolveArtifactsDir() {
+    const configured = config.ARTIFACTS_DIR
+        ? (path.isAbsolute(config.ARTIFACTS_DIR)
+            ? config.ARTIFACTS_DIR
+            : path.resolve(BACKEND_ROOT, config.ARTIFACTS_DIR))
+        : null;
+
+    const candidates = [
+        configured,
+        path.resolve(BACKEND_ROOT, 'artifacts'),
+        path.resolve(REPO_ROOT, 'artifacts'),
+    ].filter(Boolean);
+
+    return candidates.find((candidate) => fs.existsSync(candidate)) || candidates[0];
+}
+
+const PYTHON_BIN = resolvePythonBin();
+const ARTIFACTS_DIR = resolveArtifactsDir();
 
 function resolveCasesDatasetPath() {
     const configuredDir = config.DATA_DIR
@@ -71,7 +107,7 @@ exports.predict = async (req, res) => {
         };
 
         const scriptPath = path.join(__dirname, '../ml-scripts/predict.py');
-        const pythonProcess = spawn(PYTHON_BIN, [scriptPath, '--input_json', JSON.stringify(caseJson), '--artifacts_dir', path.join(__dirname, '../../artifacts')]);
+        const pythonProcess = spawn(PYTHON_BIN, [scriptPath, '--input_json', JSON.stringify(caseJson), '--artifacts_dir', ARTIFACTS_DIR]);
 
         let stdout = '';
         let stderr = '';
@@ -143,7 +179,7 @@ exports.recommend = async (req, res) => {
         };
 
         const scriptPath = path.join(__dirname, '../ml-scripts/recommend.py');
-        const pythonProcess = spawn(PYTHON_BIN, [scriptPath, '--input_json', JSON.stringify(caseJson), '--mongo_uri', config.MONGO_URI, '--artifacts_dir', path.join(__dirname, '../../artifacts')]);
+        const pythonProcess = spawn(PYTHON_BIN, [scriptPath, '--input_json', JSON.stringify(caseJson), '--mongo_uri', config.MONGO_URI, '--artifacts_dir', ARTIFACTS_DIR]);
 
         let stdout = '';
         let stderr = '';
@@ -201,7 +237,7 @@ exports.train = async (req, res) => {
     try {
         const scriptPath = path.join(__dirname, '../ml-scripts/train.py');
         const datasetPath = resolveCasesDatasetPath();
-        const pythonProcess = spawn(PYTHON_BIN, [scriptPath, '--dataset_path', datasetPath, '--artifacts_dir', path.join(__dirname, '../../artifacts')]);
+        const pythonProcess = spawn(PYTHON_BIN, [scriptPath, '--dataset_path', datasetPath, '--artifacts_dir', ARTIFACTS_DIR]);
 
         let stdout = '';
         let stderr = '';

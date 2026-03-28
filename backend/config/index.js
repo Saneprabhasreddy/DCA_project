@@ -7,6 +7,9 @@ module.exports = {
     JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '24h',
     ML_SERVICE_URL: process.env.ML_SERVICE_URL,
     PYTHON_BIN: process.env.PYTHON_BIN,
+    ARTIFACTS_DIR:
+        process.env.ARTIFACTS_DIR ||
+        path.resolve(__dirname, '../artifacts'),
     DATA_DIR:
         process.env.DATA_DIR ||
         path.resolve(__dirname, '../data/fedex_dca_synthetic_dataset'),
