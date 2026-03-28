@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { Brain, Eye, EyeOff, Loader2, Sun, Moon } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Sun, Moon } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function LoginPage() {
@@ -56,9 +56,7 @@ export default function LoginPage() {
             <div className="relative z-10 w-full max-w-md animate-fade-in-up">
                 {/* Logo */}
                 <div className="text-center mb-8">
-                    <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
-                        <Brain className="w-8 h-8 text-white" />
-                    </div>
+                    <img src="/image.png" alt="SmartDCA logo" className="w-16 h-16 mx-auto mb-4 rounded-2xl object-cover shadow-lg shadow-blue-500/30" />
                     <h1 className="text-3xl font-bold gradient-text">SmartDCA</h1>
                     <p className="text-surface-200/50 mt-1">Recovery Platform</p>
                 </div>

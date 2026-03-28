@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import {
-    LayoutDashboard, FileText, Brain, LogOut, Menu, X, ChevronLeft,
+    LayoutDashboard, FileText, LogOut, Menu, X, ChevronLeft,
     Users, Database, ChevronDown, Sun, Moon
 } from 'lucide-react';
 import { useState } from 'react';
@@ -44,9 +44,7 @@ export default function Layout({ children }) {
                 {/* Logo */}
                 <div className="p-6 border-b border-surface-700/50">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                            <Brain className="w-6 h-6 text-white" />
-                        </div>
+                        <img src="/image.png" alt="SmartDCA logo" className="w-10 h-10 rounded-xl object-cover" />
                         <div>
                             <h1 className="text-lg font-bold gradient-text">SmartDCA</h1>
                             <p className="text-xs text-surface-200/50">Recovery Platform</p>
