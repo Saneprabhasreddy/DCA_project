@@ -46,7 +46,7 @@ export default function IngestPage() {
                     id="ingest-btn"
                     onClick={handleIngest}
                     disabled={loading}
-                    className="btn-primary text-lg px-8 py-3 flex items-center gap-3 mx-auto"
+                    className="btn-primary w-full sm:w-auto justify-center text-lg px-8 py-3 flex items-center gap-3 mx-auto"
                 >
                     {loading ? (
                         <Loader2 className="w-6 h-6 animate-spin" />
@@ -62,7 +62,7 @@ export default function IngestPage() {
                             <CheckCircle className="w-5 h-5 text-emerald-400" />
                             <h3 className="text-lg font-semibold text-emerald-400">Ingestion Complete</h3>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {[
                                 { label: 'Cases Loaded', value: result.cases?.toLocaleString() },
                                 { label: 'Interactions Loaded', value: result.interactions?.toLocaleString() },

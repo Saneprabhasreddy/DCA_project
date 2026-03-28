@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import toast from 'react-hot-toast';
 import { useTheme } from '../contexts/ThemeContext';
-import { Search, Filter, ChevronLeft, ChevronRight, Loader2, Brain, FileText } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Loader2, FileText } from 'lucide-react';
 
 const STAGES = ['', 'Allocated', 'In Progress', 'PTP', 'Dispute', 'Escalated', 'Closed'];
 const REGIONS = ['', 'NA', 'EMEA', 'APAC', 'LATAM'];
@@ -90,20 +90,23 @@ export default function CasesListPage() {
 
     return (
         <div className="space-y-6 animate-fade-in-up">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-surface-100">Cases</h1>
                     <p className="text-surface-200/50 text-sm">{total.toLocaleString()} total cases</p>
                 </div>
-                <button onClick={() => navigate('/cases/new')} className="btn-primary flex items-center gap-2">
+                <button
+                    onClick={() => navigate('/cases/new')}
+                    className="btn-primary w-full sm:w-auto justify-center flex items-center gap-2"
+                >
                     <FileText className="w-4 h-4" />
                     New Case
                 </button>
             </div>
 
             {/* Filters */}
-            <div className="glass-card p-4 flex flex-wrap items-center gap-4">
-                <form onSubmit={handleSearch} className="flex items-center gap-2 flex-1 min-w-[200px]">
+            <div className="glass-card p-4 grid grid-cols-1 lg:grid-cols-[1fr_auto_auto] gap-3 items-center">
+                <form onSubmit={handleSearch} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 min-w-[200px]">
                     <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-200/50" />
                         <input
@@ -114,13 +117,13 @@ export default function CasesListPage() {
                             className="input-field input-field-icon-left"
                         />
                     </div>
-                    <button type="submit" className="btn-primary">Search</button>
+                    <button type="submit" className="btn-primary w-full sm:w-auto">Search</button>
                 </form>
 
                 <select
                     value={stage}
                     onChange={(e) => { setStage(e.target.value); setPage(1); }}
-                    className="input-field w-auto"
+                    className="input-field w-full lg:w-auto"
                 >
                     {STAGES.map((s) => (
                         <option key={s} value={s}>{s || 'All Stages'}</option>
@@ -130,7 +133,7 @@ export default function CasesListPage() {
                 <select
                     value={region}
                     onChange={(e) => { setRegion(e.target.value); setPage(1); }}
-                    className="input-field w-auto"
+                    className="input-field w-full lg:w-auto"
                 >
                     {REGIONS.map((r) => (
                         <option key={r} value={r}>{r || 'All Regions'}</option>
@@ -145,7 +148,34 @@ export default function CasesListPage() {
                 </div>
             ) : (
                 <div className="glass-card overflow-hidden">
-                    <div className="overflow-x-auto">
+                    <div className="space-y-3 p-3 md:hidden">
+                        {cases.map((c) => (
+                            <button
+                                key={c.case_id}
+                                type="button"
+                                onClick={() => navigate(`/cases/${c.case_id}`)}
+                                className={`w-full rounded-xl border p-4 text-left transition-colors ${isDark
+                                    ? 'border-surface-700/50 bg-surface-800/40 hover:bg-surface-800/70'
+                                    : 'border-slate-200 bg-white hover:bg-slate-50'
+                                    }`}
+                            >
+                                <div className="flex items-start justify-between gap-3">
+                                    <p className={`font-semibold ${isDark ? 'text-blue-300' : 'text-blue-600'}`}>{c.case_id}</p>
+                                    <span className={`badge shrink-0 ${stageBadge(c.current_stage_snapshot)}`}>{c.current_stage_snapshot}</span>
+                                </div>
+                                <div className={`mt-3 grid grid-cols-2 gap-2 text-sm ${isDark ? 'text-surface-200/70' : 'text-slate-700'}`}>
+                                    <p><span className={isDark ? 'text-surface-200/50' : 'text-slate-500'}>Region:</span> {c.region || '—'}</p>
+                                    <p><span className={isDark ? 'text-surface-200/50' : 'text-slate-500'}>Industry:</span> {c.industry || '—'}</p>
+                                    <p><span className={isDark ? 'text-surface-200/50' : 'text-slate-500'}>Amount:</span> ${c.invoice_amount_usd?.toLocaleString()}</p>
+                                    <p><span className={isDark ? 'text-surface-200/50' : 'text-slate-500'}>Overdue:</span> {c.overdue_days_at_allocation}</p>
+                                    <p><span className={isDark ? 'text-surface-200/50' : 'text-slate-500'}>DCA:</span> {c.assigned_dca_id || '—'}</p>
+                                    <p><span className={isDark ? 'text-surface-200/50' : 'text-slate-500'}>Recovery:</span> {c.ai_prob_60d != null ? `${(c.ai_prob_60d * 100).toFixed(1)}%` : '—'}</p>
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="hidden md:block overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className={tableHeadRowClass}>
@@ -199,7 +229,7 @@ export default function CasesListPage() {
                     </div>
 
                     {/* Pagination */}
-                    <div className={`flex items-center justify-between px-4 py-3 border-t ${isDark ? 'border-surface-700/50' : 'border-slate-300 bg-slate-50/50'}`}>
+                    <div className={`flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-4 py-3 border-t ${isDark ? 'border-surface-700/50' : 'border-slate-300 bg-slate-50/50'}`}>
                         <p className={`text-xs ${isDark ? 'text-surface-200/50' : 'text-slate-500'}`}>
                             Page {page} of {pages} · {total} results
                         </p>

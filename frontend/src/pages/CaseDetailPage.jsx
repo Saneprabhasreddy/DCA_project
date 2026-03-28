@@ -204,22 +204,24 @@ export default function CaseDetailPage() {
     return (
         <div className="space-y-6 animate-fade-in-up">
             {/* Header */}
-            <div className="flex items-center gap-4">
-                <button onClick={() => navigate(-1)} className="btn-secondary p-2">
-                    <ArrowLeft className="w-5 h-5" />
-                </button>
-                <div className="flex-1">
-                    <h1 className="text-2xl font-bold text-surface-100">Case {c.case_id}</h1>
-                    <div className="flex items-center gap-3 mt-1">
-                        <span className={`badge border ${stageBadge(c.current_stage_snapshot)}`}>{c.current_stage_snapshot}</span>
-                        {c.assigned_dca_id && <span className="badge bg-cyan-500/20 text-cyan-400">{c.assigned_dca_id}</span>}
-                        <span className="text-xs text-surface-200/50">{c.region} · {c.industry}</span>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <button onClick={() => navigate(-1)} className="btn-secondary p-2 shrink-0">
+                        <ArrowLeft className="w-5 h-5" />
+                    </button>
+                    <div className="min-w-0">
+                        <h1 className="text-2xl font-bold text-surface-100 break-all">Case {c.case_id}</h1>
+                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                            <span className={`badge border ${stageBadge(c.current_stage_snapshot)}`}>{c.current_stage_snapshot}</span>
+                            {c.assigned_dca_id && <span className="badge bg-cyan-500/20 text-cyan-400">{c.assigned_dca_id}</span>}
+                            <span className="text-xs text-surface-200/50">{c.region} · {c.industry}</span>
+                        </div>
                     </div>
                 </div>
 
                 {/* Action Buttons */}
                 {canManage && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:justify-end">
                         {c.current_stage_snapshot === 'Closed' ? (
                             <span className="text-sm font-medium text-surface-200/40 border border-surface-700/50 bg-surface-800/50 px-3 py-1.5 rounded-lg flex items-center gap-2" title="Disabled because case is Closed">
                                 Case Closed
@@ -229,7 +231,7 @@ export default function CaseDetailPage() {
                                 <button
                                     onClick={handlePredict}
                                     disabled={predicting}
-                                    className="btn-primary flex items-center gap-2"
+                                    className="btn-primary flex-1 sm:flex-none justify-center flex items-center gap-2"
                                 >
                                     {predicting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Brain className="w-4 h-4" />}
                                     {c.ai_scored_at ? 'Refresh Prediction' : 'Predict'}
@@ -240,7 +242,7 @@ export default function CaseDetailPage() {
                                         handleRecommend();
                                     }}
                                     disabled={recommending}
-                                    className="btn-success flex items-center gap-2"
+                                    className="btn-success flex-1 sm:flex-none justify-center flex items-center gap-2"
                                     title={c.assigned_dca_id && !reassignMode ? "Will trigger reassignment flow" : ""}
                                 >
                                     {recommending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
@@ -258,7 +260,7 @@ export default function CaseDetailPage() {
                     {/* Main Info Card */}
                     <div className="glass-card p-6">
                         <h2 className="text-lg font-semibold text-surface-100 mb-4">Case Details</h2>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                             {[
                                 { label: 'Invoice Amount', value: `$${c.invoice_amount_usd?.toLocaleString()}`, icon: DollarSign },
                                 { label: 'Overdue Days', value: c.overdue_days_at_allocation, icon: Clock },
@@ -284,12 +286,12 @@ export default function CaseDetailPage() {
                     {/* Customer Contact Panel */}
                     {(c.phone || c.email) ? (
                         <div className="glass-card p-6 border-l-4 border-l-blue-500">
-                            <div className="flex items-center justify-between mb-4">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
                                 <div className="flex items-center gap-2">
                                     <User className="w-5 h-5 text-blue-400" />
                                     <h2 className="text-lg font-semibold text-surface-100">Customer Contact</h2>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex flex-wrap items-center gap-2">
                                     <button
                                         onClick={() => {
                                             navigator.clipboard.writeText(`Name: ${c.contact_person_name || 'N/A'}\nPhone: ${c.phone || 'N/A'}\nEmail: ${c.email || 'N/A'}`);
@@ -455,11 +457,11 @@ export default function CaseDetailPage() {
                             <div className="flex items-center gap-2 mb-4">
                                 <Brain className="w-5 h-5 text-purple-400" />
                                 <h2 className="text-lg font-semibold text-surface-100">AI Predictions</h2>
-                                <span className="text-xs text-surface-200/40 ml-auto">
+                                <span className="text-xs text-surface-200/40 ml-auto hidden sm:block">
                                     Scored: {c.ai_scored_at ? new Date(c.ai_scored_at).toLocaleString() : '—'}
                                 </span>
                             </div>
-                            <div className="grid grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                 <div className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-xl p-4 text-center">
                                     <Target className="w-6 h-6 text-blue-400 mx-auto mb-2" />
                                     <p className="text-xs text-surface-200/50">60-Day Recovery Prob</p>
@@ -495,15 +497,15 @@ export default function CaseDetailPage() {
                                         ? 'bg-gradient-to-r from-emerald-500/10 to-teal-500/5 border-emerald-500/30'
                                         : 'bg-surface-800/30 border-surface-700/50'
                                         }`}>
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-4">
+                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                            <div className="flex items-center gap-4 min-w-0">
                                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg ${i === 0 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-surface-700 text-surface-200/70'
                                                     }`}>
                                                     #{i + 1}
                                                 </div>
-                                                <div>
+                                                <div className="min-w-0">
                                                     <p className="text-surface-100 font-semibold">{rec.dca_id}</p>
-                                                    <p className="text-xs text-surface-200/50">
+                                                    <p className="text-xs text-surface-200/50 break-words">
                                                         Score: {rec.final_score} · Prob: {(rec.prob_60d * 100).toFixed(1)}% · Amt: ${rec.exp_amt?.toLocaleString()} · Days: {rec.exp_days?.toFixed(1)}
                                                     </p>
                                                 </div>
@@ -539,7 +541,7 @@ export default function CaseDetailPage() {
 
                     {/* Interactions Timeline */}
                     <div className="glass-card p-6">
-                        <div className="flex items-center justify-between mb-4">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
                             <div className="flex items-center gap-2">
                                 <MessageSquare className="w-5 h-5 text-blue-400" />
                                 <h2 className="text-lg font-semibold text-surface-100">Interaction Timeline</h2>
@@ -562,7 +564,7 @@ export default function CaseDetailPage() {
                         {/* Add interaction form */}
                         {showAddInteraction && !isClosed && (
                             <form onSubmit={handleAddInteraction} className="mb-6 bg-surface-800/50 rounded-xl p-4 space-y-3 border border-surface-700/50">
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <select
                                         value={newInteraction.event_type}
                                         onChange={(e) => setNewInteraction({ ...newInteraction, event_type: e.target.value })}
@@ -596,7 +598,7 @@ export default function CaseDetailPage() {
                                         </select>
 
                                         {(newInteraction.stage === 'Closed' || newInteraction.event_type === 'Payment Received') && (
-                                            <div className="grid grid-cols-2 gap-3">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                 <select
                                                     value={newInteraction.outcome}
                                                     onChange={(e) => setNewInteraction({ ...newInteraction, outcome: e.target.value })}

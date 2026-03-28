@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api';
 import toast from 'react-hot-toast';
-import { Search, Loader2, FileText, Filter, AlertCircle, Clock, Target } from 'lucide-react';
+import { Search, Loader2, FileText, AlertCircle, Clock, Target } from 'lucide-react';
 
 export default function MyCasesPage() {
     const { user } = useAuth();
@@ -55,7 +55,7 @@ export default function MyCasesPage() {
             </div>
 
             {/* Search */}
-            <form onSubmit={handleSearch} className="glass-card p-4 flex items-center gap-3">
+            <form onSubmit={handleSearch} className="glass-card p-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-200/50" />
                     <input
@@ -66,7 +66,7 @@ export default function MyCasesPage() {
                         className="input-field input-field-icon-left"
                     />
                 </div>
-                <button type="submit" className="btn-primary">Search</button>
+                <button type="submit" className="btn-primary w-full sm:w-auto">Search</button>
             </form>
 
             <div className="flex items-center gap-3 overflow-x-auto pb-2">

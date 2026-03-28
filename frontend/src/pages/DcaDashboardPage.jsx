@@ -249,7 +249,7 @@ export default function DcaDashboardPage() {
             </div>
 
          
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {kpis.map((item) => (
                     <div key={item.label} className="glass-card glass-card-hover p-4">
                         <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${item.tone} flex items-center justify-center mb-3`}>
@@ -348,7 +348,7 @@ export default function DcaDashboardPage() {
                                         AI 60d: {c.ai_prob_60d != null ? formatPercent(c.ai_prob_60d * 100) : 'N/A'}
                                     </span>
                                 </div>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3 text-sm">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 mt-3 text-sm">
                                     <div>
                                         <p className="text-surface-200/50">Invoice</p>
                                         <p className="text-surface-100 font-medium">{formatMoney(c.invoice_amount_usd)}</p>

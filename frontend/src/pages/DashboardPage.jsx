@@ -7,8 +7,8 @@ import {
     PieChart, Pie, Cell, Legend
 } from 'recharts';
 import {
-    TrendingUp, DollarSign, FileText, Users, Brain, Loader2,
-    Activity, Target, Zap, RefreshCw
+    TrendingUp, DollarSign, FileText, Brain, Loader2,
+    Activity, Target, Zap
 } from 'lucide-react';
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#22c55e', '#06b6d4'];
@@ -127,7 +127,7 @@ export default function DashboardPage() {
     return (
         <div className="space-y-6 animate-fade-in-up">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-surface-100">Dashboard</h1>
                     <p className="text-surface-200/50 text-sm mt-1">AI-powered recovery analytics</p>
@@ -136,7 +136,7 @@ export default function DashboardPage() {
                     id="train-again-btn"
                     onClick={handleTrain}
                     disabled={training}
-                    className="btn-primary flex items-center gap-2"
+                    className="btn-primary w-full sm:w-auto justify-center flex items-center gap-2"
                 >
                     {training ? <Loader2 className="w-4 h-4 animate-spin" /> : <Brain className="w-4 h-4" />}
                     {training ? 'Training...' : 'Train Again'}
@@ -144,7 +144,7 @@ export default function DashboardPage() {
             </div>
 
             {/* KPIs */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
                 {kpis.map((kpi, i) => (
                     <div key={i} className="glass-card glass-card-hover p-4 group">
                         <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${kpi.color} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
@@ -166,7 +166,7 @@ export default function DashboardPage() {
                     </div>
                     {metrics ? (
                         <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 {[
                                     { label: 'Accuracy', value: formatPct(metrics.accuracy), color: 'text-blue-400' },
                                     { label: 'Precision', value: formatPct(metrics.precision), color: 'text-purple-400' },
@@ -186,7 +186,7 @@ export default function DashboardPage() {
                             {metrics.confusion_matrix && (
                                 <div className="mt-4">
                                     <p className="text-sm text-surface-200/70 mb-2">Confusion Matrix</p>
-                                    <div className="grid grid-cols-2 gap-2">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                         <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3 text-center">
                                             <p className="text-xs text-emerald-400/70">True Neg (TN)</p>
                                             <p className="text-lg font-bold text-emerald-400">{metrics.confusion_matrix.tn}</p>
@@ -209,7 +209,7 @@ export default function DashboardPage() {
 
                             {/* Regression Metrics */}
                             {(metrics.amount_mae || metrics.days_mae) && (
-                                <div className="grid grid-cols-2 gap-3 mt-2">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
                                     <div className="bg-surface-800/50 rounded-xl p-3">
                                         <p className="text-xs text-surface-200/50">Amount MAE</p>
                                         <p className="text-lg font-bold text-orange-400">${metrics.amount_mae?.toFixed(0)}</p>

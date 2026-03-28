@@ -53,7 +53,7 @@ export default function LoginPage() {
                 {isDark ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-slate-600" />}
             </button>
 
-            <div className="relative z-10 w-full max-w-md animate-fade-in-up">
+            <div className="relative z-10 w-full max-w-md px-4 animate-fade-in-up">
                 {/* Logo */}
                 <div className="text-center mb-8">
                     <img src="/image.png" alt="SmartDCA logo" className="w-16 h-16 mx-auto mb-4 rounded-2xl object-cover shadow-lg shadow-blue-500/30" />
@@ -115,7 +115,7 @@ export default function LoginPage() {
                     {/* Demo credentials */}
                     <div className="mt-6 pt-6 border-t border-surface-700/50">
                         <p className={`text-xs mb-3 ${demoTitleClass}`}>Demo Credentials</p>
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                             {[
                                 { label: 'Admin', u: 'admin', p: 'admin123' },
                                 { label: 'Manager', u: 'manager', p: 'manager123' },
