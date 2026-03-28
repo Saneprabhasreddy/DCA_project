@@ -4,6 +4,7 @@
   "description": "SmartDCA Node/Express backend",
   "main": "server.js",
   "scripts": {
+    "prestart": "node -e \"require.resolve('express')\" || npm ci --omit=dev",
     "start": "node server.js",
     "dev": "node server.js"
   },
