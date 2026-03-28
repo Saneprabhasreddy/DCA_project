@@ -13,10 +13,25 @@ const REPO_PYTHON = path.resolve(REPO_ROOT, '.venv/bin/python3');
 
 function resolvePythonBin() {
     if (config.PYTHON_BIN) {
-        const configured = path.isAbsolute(config.PYTHON_BIN)
-            ? config.PYTHON_BIN
-            : path.resolve(BACKEND_ROOT, config.PYTHON_BIN);
-        return configured;
+        const rawConfigured = String(config.PYTHON_BIN).trim();
+        const looksLikePath =
+            rawConfigured.startsWith('.') ||
+            rawConfigured.startsWith('/') ||
+            rawConfigured.includes('/');
+
+        if (!looksLikePath) {
+            return rawConfigured;
+        }
+
+        const configuredPath = path.isAbsolute(rawConfigured)
+            ? rawConfigured
+            : path.resolve(BACKEND_ROOT, rawConfigured);
+
+        if (fs.existsSync(configuredPath)) {
+            return configuredPath;
+        }
+
+        console.warn(`Configured PYTHON_BIN not found: ${configuredPath}. Falling back to discovered Python binary.`);
     }
 
     if (fs.existsSync(BACKEND_PYTHON)) {
@@ -112,6 +127,14 @@ exports.predict = async (req, res) => {
         let stdout = '';
         let stderr = '';
 
+        pythonProcess.on('error', (spawnErr) => {
+            console.error('Python spawn error:', spawnErr.message);
+            return res.status(500).json({
+                error: 'ML prediction failed',
+                details: `Unable to start Python process (${PYTHON_BIN}): ${spawnErr.message}`,
+            });
+        });
+
         pythonProcess.stdout.on('data', (data) => {
             stdout += data.toString();
         });
@@ -121,6 +144,7 @@ exports.predict = async (req, res) => {
         });
 
         pythonProcess.on('close', async (code) => {
+            if (res.headersSent) return;
             if (code !== 0) {
                 console.error('Python script error:', stderr);
                 return res.status(500).json(buildMlErrorPayload('ML prediction failed', stderr));
@@ -184,6 +208,14 @@ exports.recommend = async (req, res) => {
         let stdout = '';
         let stderr = '';
 
+        pythonProcess.on('error', (spawnErr) => {
+            console.error('Python spawn error:', spawnErr.message);
+            return res.status(500).json({
+                error: 'ML recommendation failed',
+                details: `Unable to start Python process (${PYTHON_BIN}): ${spawnErr.message}`,
+            });
+        });
+
         pythonProcess.stdout.on('data', (data) => {
             stdout += data.toString();
         });
@@ -193,6 +225,7 @@ exports.recommend = async (req, res) => {
         });
 
         pythonProcess.on('close', async (code) => {
+            if (res.headersSent) return;
             if (code !== 0) {
                 console.error('Python script error:', stderr);
                 return res.status(500).json(buildMlErrorPayload('ML recommendation failed', stderr));
@@ -242,6 +275,14 @@ exports.train = async (req, res) => {
         let stdout = '';
         let stderr = '';
 
+        pythonProcess.on('error', (spawnErr) => {
+            console.error('Python spawn error:', spawnErr.message);
+            return res.status(500).json({
+                error: 'ML training failed',
+                details: `Unable to start Python process (${PYTHON_BIN}): ${spawnErr.message}`,
+            });
+        });
+
         pythonProcess.stdout.on('data', (data) => {
             stdout += data.toString();
         });
@@ -251,6 +292,7 @@ exports.train = async (req, res) => {
         });
 
         pythonProcess.on('close', (code) => {
+            if (res.headersSent) return;
             if (code !== 0) {
                 console.error('Python script error:', stderr);
                 return res.status(500).json(buildMlErrorPayload('ML training failed', stderr));
