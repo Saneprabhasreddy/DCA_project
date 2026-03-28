@@ -80,12 +80,19 @@ function resolveCasesDatasetPath() {
 
 function buildMlErrorPayload(baseMessage, stderr) {
     const details = (stderr || '').trim();
+    const missingPythonModule = details.includes('No module named');
     const mismatch =
         details.includes('_RemainderColsList') ||
-        details.includes('InconsistentVersionWarning') ||
-        details.includes('No module named');
+        details.includes('InconsistentVersionWarning');
     const missingModel =
         details.includes('No such file or directory') && details.includes('model_recovery_');
+
+    if (missingPythonModule) {
+        return {
+            error: `${baseMessage}: Python ML dependencies are missing on the server.`,
+            details,
+        };
+    }
 
     if (mismatch || missingModel) {
         return {

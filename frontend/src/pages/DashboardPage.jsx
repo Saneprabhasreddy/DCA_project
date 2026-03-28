@@ -60,7 +60,10 @@ export default function DashboardPage() {
             toast.success('Models retrained successfully!');
             fetchStats();
         } catch (err) {
-            toast.error(err.response?.data?.error || 'Training failed');
+            const payload = err.response?.data || {};
+            const message = payload.error || 'Training failed';
+            const details = payload.details ? ` ${payload.details}` : '';
+            toast.error(`${message}${details}`.trim());
         } finally {
             setTraining(false);
         }
