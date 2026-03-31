@@ -31,7 +31,7 @@ const caseSchema = new mongoose.Schema({
     sla_due_date: { type: Date, default: null },
     current_stage_snapshot: {
         type: String,
-        enum: ['Allocated', 'In Progress', 'PTP', 'Dispute', 'Escalated', 'Closed'],
+        enum: ['New', 'Allocated', 'In Progress', 'PTP', 'Dispute', 'Escalated', 'Closed'],
         default: 'Allocated'
     },
     // Labels for training / demo

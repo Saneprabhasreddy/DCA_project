@@ -184,7 +184,8 @@ def score_case_for_dca(case: dict, dca_id: str, clf, reg_amt, reg_days) -> dict:
     X = pd.DataFrame([row])[FEATURES]
 
     prob = float(clf.predict_proba(X)[:, 1][0])
-    exp_amt = float(max(0.0, reg_amt.predict(X)[0]))
+    invoice_amount = float(max(0.0, row.get("invoice_amount_usd", 0) or 0))
+    exp_amt = float(min(invoice_amount, max(0.0, reg_amt.predict(X)[0])))
     exp_days = float(max(0.0, reg_days.predict(X)[0]))
 
     return {"prob": prob, "exp_amt": exp_amt, "exp_days": exp_days}
@@ -233,7 +234,8 @@ def main():
         X = pd.DataFrame([row])[FEATURES]
 
         prob = float(clf.predict_proba(X)[:, 1][0])
-        exp_amt = float(max(0.0, reg_amt.predict(X)[0]))
+        invoice_amount = float(max(0.0, row.get("invoice_amount_usd", 0) or 0))
+        exp_amt = float(min(invoice_amount, max(0.0, reg_amt.predict(X)[0])))
         exp_days = float(max(0.0, reg_days.predict(X)[0]))
 
         per_dca[dca_id] = {"prob": prob, "exp_amt": exp_amt, "exp_days": exp_days}

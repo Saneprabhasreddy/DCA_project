@@ -51,7 +51,8 @@ def main():
     X = pd.DataFrame([case])[features]
 
     prob = clf.predict_proba(X)[:, 1][0]
-    exp_amt = max(0.0, amt_reg.predict(X)[0])
+    invoice_amount = float(max(0.0, case.get("invoice_amount_usd", 0) or 0))
+    exp_amt = min(invoice_amount, max(0.0, amt_reg.predict(X)[0]))
     exp_days = max(0.0, days_reg.predict(X)[0])
 
     result = {

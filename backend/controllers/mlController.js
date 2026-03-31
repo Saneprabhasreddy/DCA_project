@@ -8,8 +8,15 @@ const path = require('path');
 
 const BACKEND_ROOT = path.resolve(__dirname, '..');
 const REPO_ROOT = path.resolve(__dirname, '../..');
-const BACKEND_PYTHON = path.resolve(BACKEND_ROOT, '.venv/bin/python3');
-const REPO_PYTHON = path.resolve(REPO_ROOT, '.venv/bin/python3');
+
+function buildPythonCandidates(rootDir) {
+    return [
+        path.resolve(rootDir, '.ven/Scripts/python.exe'),
+        path.resolve(rootDir, '.venv/Scripts/python.exe'),
+        path.resolve(rootDir, '.ven/bin/python3'),
+        path.resolve(rootDir, '.venv/bin/python3'),
+    ];
+}
 
 function resolvePythonBin() {
     if (config.PYTHON_BIN) {
@@ -34,11 +41,14 @@ function resolvePythonBin() {
         console.warn(`Configured PYTHON_BIN not found: ${configuredPath}. Falling back to discovered Python binary.`);
     }
 
-    if (fs.existsSync(BACKEND_PYTHON)) {
-        return BACKEND_PYTHON;
-    }
-    if (fs.existsSync(REPO_PYTHON)) {
-        return REPO_PYTHON;
+    const pythonCandidates = [
+        ...buildPythonCandidates(BACKEND_ROOT),
+        ...buildPythonCandidates(REPO_ROOT),
+    ];
+
+    const discovered = pythonCandidates.find((candidate) => fs.existsSync(candidate));
+    if (discovered) {
+        return discovered;
     }
     return 'python3';
 }

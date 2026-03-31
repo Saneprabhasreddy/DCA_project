@@ -79,11 +79,15 @@ exports.createCase = async (req, res) => {
 
         const count = await Case.countDocuments();
         const case_id = `C${String(count + 1).padStart(6, '0')}`;
+        const slaDays = Number.isFinite(Number(payload.sla_days)) ? Number(payload.sla_days) : 14;
+        const slaDueDate = new Date(Date.now() + (slaDays * 24 * 60 * 60 * 1000));
 
         const newCase = await Case.create({
             ...payload,
             case_id,
-            current_stage_snapshot: 'New'
+            current_stage_snapshot: 'New',
+            sla_days: slaDays,
+            sla_due_date: slaDueDate,
         });
 
         await AuditLog.create({
@@ -97,6 +101,9 @@ exports.createCase = async (req, res) => {
         res.status(201).json(newCase);
     } catch (err) {
         console.error('Create case error:', err);
+        if (err.name === 'ValidationError') {
+            return res.status(400).json({ error: err.message });
+        }
         res.status(500).json({ error: err.message });
     }
 };
