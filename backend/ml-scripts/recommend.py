@@ -7,7 +7,10 @@ from urllib.parse import urlparse
 import numpy as np
 import pandas as pd
 from joblib import load
-from pymongo import MongoClient
+try:
+    from pymongo import MongoClient
+except Exception:
+    MongoClient = None
 
 FEATURES = [
     "region",
@@ -72,6 +75,8 @@ def get_available_dcas(mongo_uri: str, capacity_left: Optional[Dict[str, int]] =
 
     # 1) From MongoDB
     try:
+        if not mongo_uri or MongoClient is None:
+            raise RuntimeError("Mongo unavailable")
         client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000, connectTimeoutMS=5000)
         db = resolve_database(client, mongo_uri, db_name)
         if db is None:
@@ -119,6 +124,8 @@ def build_dca_segment_table(mongo_uri: str, db_name: Optional[str] = None) -> Di
     Returns a dict seg_table[key] = {"recovered": int, "total": int}
     """
     try:
+        if not mongo_uri or MongoClient is None:
+            raise RuntimeError("Mongo unavailable")
         client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000, connectTimeoutMS=5000)
         db = resolve_database(client, mongo_uri, db_name)
         if db is None:
@@ -194,7 +201,7 @@ def score_case_for_dca(case: dict, dca_id: str, clf, reg_amt, reg_days) -> dict:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--artifacts_dir", default="artifacts")
-    ap.add_argument("--mongo_uri", required=True, help="MongoDB URI")
+    ap.add_argument("--mongo_uri", default="", help="MongoDB URI (optional)")
     ap.add_argument("--db_name", default=None, help="Optional MongoDB database name")
     ap.add_argument("--input_json", required=True, help="New case features as JSON string")
     ap.add_argument("--top_k", type=int, default=3)

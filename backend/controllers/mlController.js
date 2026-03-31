@@ -223,9 +223,11 @@ exports.recommend = async (req, res) => {
         const args = [
             scriptPath,
             '--input_json', JSON.stringify(caseJson),
-            '--mongo_uri', config.MONGO_URI,
             '--artifacts_dir', ARTIFACTS_DIR,
         ];
+        if (config.MONGO_URI) {
+            args.push('--mongo_uri', config.MONGO_URI);
+        }
         if (config.MONGO_DB_NAME) {
             args.push('--db_name', config.MONGO_DB_NAME);
         }
