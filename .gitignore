@@ -3,11 +3,6 @@ node_modules/
 
 
 
-# Environment files (contain secrets)
-.env
-backend/.env
-frontend/.env
-ml-service/.env
 
 # Build output
 dist/
