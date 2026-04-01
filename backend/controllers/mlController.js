@@ -114,6 +114,24 @@ function buildMlErrorPayload(baseMessage, stderr) {
     return { error: baseMessage, details };
 }
 
+function parseMlJsonOutput(stdout) {
+    const raw = String(stdout || '').trim();
+    if (!raw) {
+        throw new Error('Empty ML output');
+    }
+
+    try {
+        return JSON.parse(raw);
+    } catch (_err) {
+        const firstBrace = raw.indexOf('{');
+        const lastBrace = raw.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace > firstBrace) {
+            return JSON.parse(raw.slice(firstBrace, lastBrace + 1));
+        }
+        throw new Error(`Unable to parse ML JSON output: ${raw.slice(0, 240)}`);
+    }
+}
+
 // POST /api/cases/:case_id/predict
 exports.predict = async (req, res) => {
     try {
@@ -168,25 +186,35 @@ exports.predict = async (req, res) => {
             }
 
             try {
-                const { prob_60d, exp_amt, exp_days } = JSON.parse(stdout.trim());
+                const { prob_60d, exp_amt, exp_days } = parseMlJsonOutput(stdout);
+                const scoredAt = new Date();
 
-                // Update case with AI scores
-                c.ai_prob_60d = prob_60d;
-                c.ai_exp_amt = exp_amt;
-                c.ai_exp_days = exp_days;
-                c.ai_scored_at = new Date();
-                await c.save();
+                // Update only AI fields to avoid unrelated full-document validation failures.
+                await Case.updateOne(
+                    { _id: c._id },
+                    {
+                        $set: {
+                            ai_prob_60d: prob_60d,
+                            ai_exp_amt: exp_amt,
+                            ai_exp_days: exp_days,
+                            ai_scored_at: scoredAt,
+                        },
+                    }
+                );
 
                 res.json({
                     case_id: c.case_id,
                     prob_60d,
                     exp_amt,
                     exp_days,
-                    scored_at: c.ai_scored_at,
+                    scored_at: scoredAt,
                 });
             } catch (parseErr) {
-                console.error('JSON parse error:', parseErr, 'stdout:', stdout);
-                res.status(500).json({ error: 'Failed to parse ML output' });
+                console.error('Prediction output/save error:', parseErr, 'stdout:', stdout, 'stderr:', stderr);
+                res.status(500).json({
+                    error: 'Failed to process ML prediction output',
+                    details: parseErr.message,
+                });
             }
         });
     } catch (err) {
@@ -260,7 +288,12 @@ exports.recommend = async (req, res) => {
             }
 
             try {
-                const { recommendations, best_dca } = JSON.parse(stdout.trim());
+                const parsed = parseMlJsonOutput(stdout);
+                const recommendations = parsed.recommendations;
+                const best_dca = parsed.best_dca ?? null;
+                if (!Array.isArray(recommendations)) {
+                    throw new Error('ML output missing recommendations array');
+                }
 
                 // Store allocation
                 const allocation = await Allocation.create({
@@ -282,9 +315,12 @@ exports.recommend = async (req, res) => {
                     best_dca,
                     allocation_id: allocation._id,
                 });
-            } catch (parseErr) {
-                console.error('JSON parse error:', parseErr, 'stdout:', stdout);
-                res.status(500).json({ error: 'Failed to parse ML output' });
+            } catch (runtimeErr) {
+                console.error('Recommendation output/save error:', runtimeErr, 'stdout:', stdout, 'stderr:', stderr);
+                res.status(500).json({
+                    error: 'Failed to process ML recommendation output',
+                    details: runtimeErr.message,
+                });
             }
         });
     } catch (err) {
