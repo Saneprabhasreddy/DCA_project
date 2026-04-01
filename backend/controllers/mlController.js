@@ -9,12 +9,28 @@ const path = require('path');
 const BACKEND_ROOT = path.resolve(__dirname, '..');
 const REPO_ROOT = path.resolve(__dirname, '../..');
 
+function isExecutablePath(candidatePath) {
+    try {
+        fs.accessSync(candidatePath, fs.constants.X_OK);
+        return true;
+    } catch (_err) {
+        return false;
+    }
+}
+
 function buildPythonCandidates(rootDir) {
+    if (process.platform === 'win32') {
+        return [
+            path.resolve(rootDir, '.ven/Scripts/python.exe'),
+            path.resolve(rootDir, '.venv/Scripts/python.exe'),
+        ];
+    }
+
     return [
-        path.resolve(rootDir, '.ven/Scripts/python.exe'),
-        path.resolve(rootDir, '.venv/Scripts/python.exe'),
         path.resolve(rootDir, '.ven/bin/python3'),
+        path.resolve(rootDir, '.ven/bin/python'),
         path.resolve(rootDir, '.venv/bin/python3'),
+        path.resolve(rootDir, '.venv/bin/python'),
     ];
 }
 
@@ -34,11 +50,11 @@ function resolvePythonBin() {
             ? rawConfigured
             : path.resolve(BACKEND_ROOT, rawConfigured);
 
-        if (fs.existsSync(configuredPath)) {
+        if (isExecutablePath(configuredPath)) {
             return configuredPath;
         }
 
-        console.warn(`Configured PYTHON_BIN not found: ${configuredPath}. Falling back to discovered Python binary.`);
+        console.warn(`Configured PYTHON_BIN is missing or not executable: ${configuredPath}. Falling back to discovered Python binary.`);
     }
 
     const pythonCandidates = [
@@ -46,7 +62,7 @@ function resolvePythonBin() {
         ...buildPythonCandidates(REPO_ROOT),
     ];
 
-    const discovered = pythonCandidates.find((candidate) => fs.existsSync(candidate));
+    const discovered = pythonCandidates.find((candidate) => isExecutablePath(candidate));
     if (discovered) {
         return discovered;
     }

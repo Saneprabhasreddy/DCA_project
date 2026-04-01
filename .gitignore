@@ -30,5 +30,6 @@ Thumbs.db
 ml-service/venv/
 venv/
 .venv/
+.ven/
 __pycache__/
 *.pyc

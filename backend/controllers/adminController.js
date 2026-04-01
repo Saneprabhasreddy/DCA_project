@@ -12,6 +12,31 @@ const AuditLog = require('../models/AuditLog');
 const MlMetric = require('../models/MlMetric');
 const config = require('../config');
 
+function isExecutablePath(candidatePath) {
+    try {
+        fs.accessSync(candidatePath, fs.constants.X_OK);
+        return true;
+    } catch (_err) {
+        return false;
+    }
+}
+
+function buildPythonCandidates(rootDir) {
+    if (process.platform === 'win32') {
+        return [
+            path.resolve(rootDir, '.ven/Scripts/python.exe'),
+            path.resolve(rootDir, '.venv/Scripts/python.exe'),
+        ];
+    }
+
+    return [
+        path.resolve(rootDir, '.ven/bin/python3'),
+        path.resolve(rootDir, '.ven/bin/python'),
+        path.resolve(rootDir, '.venv/bin/python3'),
+        path.resolve(rootDir, '.venv/bin/python'),
+    ];
+}
+
 function resolveDataDirectory() {
     const backendRoot = path.resolve(__dirname, '..');
     const repoRoot = path.resolve(__dirname, '../..');
@@ -41,8 +66,6 @@ function resolveDataDirectory() {
 function resolvePythonBin() {
     const backendRoot = path.resolve(__dirname, '..');
     const repoRoot = path.resolve(__dirname, '../..');
-    const backendPython = path.resolve(backendRoot, '.venv/bin/python3');
-    const repoPython = path.resolve(repoRoot, '.venv/bin/python3');
 
     if (config.PYTHON_BIN) {
         const rawConfigured = String(config.PYTHON_BIN).trim();
@@ -59,13 +82,19 @@ function resolvePythonBin() {
             ? rawConfigured
             : path.resolve(backendRoot, rawConfigured);
 
-        if (fs.existsSync(configuredPath)) {
+        if (isExecutablePath(configuredPath)) {
             return configuredPath;
         }
     }
 
-    if (fs.existsSync(backendPython)) return backendPython;
-    if (fs.existsSync(repoPython)) return repoPython;
+    const pythonCandidates = [
+        ...buildPythonCandidates(backendRoot),
+        ...buildPythonCandidates(repoRoot),
+    ];
+    const discovered = pythonCandidates.find((candidate) => isExecutablePath(candidate));
+    if (discovered) {
+        return discovered;
+    }
     return 'python3';
 }
 
